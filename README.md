@@ -78,16 +78,23 @@ thuộc nhiều workspace, nếu không RLS trả rỗng câm (không lỗi, ch�
 
 Cài đặt nằm ở đáy rail.
 
+## Hai tầng quyết định trợ lý trả lời thế nào
+
+`resolve_effective_reply_mode` đọc theo thứ tự:
+
+1. **Ghi đè của TỪNG hội thoại** (`conversations.reply_mode_override`) — đặt ở
+   tab Hộp thư. Ba nấc: `auto_send` · `advisor` · `off`.
+2. Không có ghi đè → **mặc định của KÊNH**
+   (`integration.config_json.runtime.auto_reply_enabled`) — đặt ở tab Cài đặt.
+   Chỉ hai nấc: bật = tự trả lời, tắt = soạn nháp chờ duyệt.
+
+Nên **không có nấc "im hẳn" ở mức kênh** — muốn trợ lý không cả soạn nháp thì
+phải đặt riêng cho hội thoại đó. Màn Cài đặt nói thẳng điều này.
+
+Đổi cờ kênh: `POST /integrations/meta/set-auto-reply` — **chỉ Facebook/Instagram**.
+Kênh khác hiện read-only.
+
 ## Giới hạn đã biết
-
-**Không tắt được trợ lý cho hội thoại tương lai.** `resolve_effective_reply_mode`
-chỉ đọc ghi đè của TỪNG hội thoại và cờ `auto_reply_enabled` của TỪNG kênh (chỉ
-Meta có endpoint đổi). Không có "chế độ mặc định" ở mức agent.
-
-Nên tab Cài đặt áp chế độ cho mọi hội thoại ĐANG CÓ, và nói thẳng giới hạn đó
-trên màn hình. Muốn tắt hẳn cho cả về sau cần sửa backend: thêm
-`agent_config_json.default_reply_mode` rồi cho `resolve_effective_reply_mode`
-đọc nó — nhưng hàm đó có **6 nơi gọi**, là lõi dùng chung, phải bàn trước khi sửa.
 
 **`unread` chưa có ở backend** — badge số chỉ hiện với dữ liệu mock.
 

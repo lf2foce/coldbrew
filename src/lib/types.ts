@@ -148,3 +148,24 @@ export type AgentDetail = {
   name: string;
   agent_config_json?: Record<string, unknown> | null;
 };
+
+/** Kênh đã nối (Facebook page, Zalo OA…). `config_json.runtime.auto_reply_enabled`
+ *  là MẶC ĐỊNH cho hội thoại tương lai của kênh đó:
+ *    true / vắng mặt → trợ lý tự trả lời
+ *    false           → trợ lý chỉ soạn nháp, người bấm gửi
+ *  Xem `resolve_effective_reply_mode`: ghi đè của từng hội thoại thắng trước,
+ *  không có ghi đè thì rơi về cờ này. */
+export type Integration = {
+  id: string;
+  agent_id: string | null;
+  platform: string;
+  external_app_id: string;
+  status: string;
+  config_json?: { runtime?: { auto_reply_enabled?: boolean | null }; meta?: { name?: string } };
+};
+
+/** Nền tảng có endpoint đổi cờ auto-reply. Các nền tảng khác chỉ đọc được. */
+export const AUTO_REPLY_EDITABLE = new Set(["facebook", "instagram"]);
+
+/** Kênh trò chuyện — lọc bỏ ad_partner, email… vốn không phải nơi khách nhắn. */
+export const CHAT_PLATFORMS = new Set(["facebook", "instagram", "zalo", "lark", "telegram", "web"]);
