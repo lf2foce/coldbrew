@@ -27,6 +27,7 @@ import { TestPanel } from "./test-panel";
 import { QualityPanel } from "./quality-panel";
 import { SettingsPanel } from "./settings-panel";
 import { makeApi } from "@/lib/api";
+import { useConversationStream } from "@/lib/use-conversation-stream";
 
 const PLATFORM_LABEL: Record<string, string> = {
   facebook: "Facebook",
@@ -126,6 +127,40 @@ export default function InboxPage() {
   }, [messages, drafts]);
 
   const active = convs?.find((c) => c.id === activeId) ?? null;
+
+  // Nghe tin mới của hội thoại đang mở. Dedupe theo id vì tin mình vừa gửi đã
+  // nằm sẵn trong danh sách (cập nhật lạc quan) và sẽ quay về qua SSE.
+  useConversationStream({
+    conversationId: activeId,
+    enabled: !MOCK && tab === "chat",
+    api,
+    getToken,
+    onMessage: (m) => {
+      setMessages((prev) => {
+        if (!prev) return [m];
+        if (prev.some((x) => x.id === m.id)) return prev;
+        // Bỏ bản lạc quan cùng nội dung: nó có id tạm `tmp-…`, không trùng id
+        // thật nên dedupe theo id không bắt được.
+        const cleaned = prev.filter(
+          (x) => !(x.id.startsWith("tmp-") && x.content === m.content),
+        );
+        return [...cleaned, m];
+      });
+      // Danh sách bên trái phải nhảy lên đầu, nếu không nhân viên không biết
+      // cuộc nào vừa có tin.
+      setConvs((prev) =>
+        prev?.map((c) =>
+          c.id === activeId
+            ? { ...c, updated_at: m.created_at, message_count: (c.message_count ?? 0) + 1 }
+            : c,
+        ) ?? prev,
+      );
+    },
+    // Khách vừa nhắn → trợ lý có thể vừa soạn nháp mới.
+    onUserMessage: () => {
+      if (activeId) void api<Draft[]>(`/conversations/${activeId}/drafts`).then(setDrafts).catch(() => undefined);
+    },
+  });
 
   /** Đổi chế độ trả lời của hội thoại đang mở. Cập nhật lạc quan để bấm là thấy. */
   const setReplyMode = useCallback(

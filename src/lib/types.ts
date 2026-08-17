@@ -136,3 +136,15 @@ export const FAILED_KIND: Record<FailedQuestion["kind"], { label: string; bg: st
   weak_grounding: { label: "Căn cứ yếu", bg: "#e3f0ff", fg: "#1b5fa8" },
   disliked: { label: "Bị chê 👎", bg: "#ffe6e4", fg: "#a33a33" },
 };
+
+/** Luật vá gắn ở tầng agent — đè lên prompt gốc, áp cho mọi kênh.
+ *  Đọc/ghi qua `agent_config_json.prompt_hotfix` (PATCH /agents/{id}). */
+export type PromptHotfix = { text: string; updated_at?: string; updated_by?: string };
+
+export const HOTFIX_MAX_CHARS = 2000;
+
+export type AgentDetail = {
+  id: string;
+  name: string;
+  agent_config_json?: Record<string, unknown> | null;
+};

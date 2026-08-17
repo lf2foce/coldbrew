@@ -16,10 +16,10 @@
  */
 
 import { useAuth } from "@clerk/nextjs";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AGENT_ID, BRAND } from "@/lib/brand";
 import { MOCK } from "@/lib/mock";
-import { REPLY_MODES, type Conversation, type ReplyMode } from "@/lib/types";
+import { HOTFIX_MAX_CHARS, REPLY_MODES, type AgentDetail, type Conversation, type PromptHotfix, type ReplyMode } from "@/lib/types";
 import { makeApi } from "@/lib/api";
 
 export function SettingsPanel() {
@@ -28,6 +28,69 @@ export function SettingsPanel() {
   const [busy, setBusy] = useState<ReplyMode | null>(null);
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // ── Luật vá ──
+  const [hotfix, setHotfix] = useState("");
+  const [savedHotfix, setSavedHotfix] = useState("");
+  const [hotfixMeta, setHotfixMeta] = useState<PromptHotfix | null>(null);
+  const [savingHotfix, setSavingHotfix] = useState(false);
+  const [hotfixMsg, setHotfixMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (MOCK || !AGENT_ID) return;
+    void (async () => {
+      try {
+        const a = await api<AgentDetail>(`/agents/${AGENT_ID}`);
+        const raw = (a.agent_config_json ?? {})["prompt_hotfix"];
+        const h: PromptHotfix | null =
+          typeof raw === "string" ? { text: raw } : (raw as PromptHotfix | undefined) ?? null;
+        setHotfix(h?.text ?? "");
+        setSavedHotfix(h?.text ?? "");
+        setHotfixMeta(h);
+      } catch {
+        /* đọc hỏng thì để trống, không chặn cả màn Cài đặt */
+      }
+    })();
+  }, [api]);
+
+  const saveHotfix = useCallback(async () => {
+    setSavingHotfix(true);
+    setHotfixMsg(null);
+    const text = hotfix.trim();
+    if (MOCK) {
+      setTimeout(() => {
+        setSavedHotfix(text);
+        setHotfixMsg("(chế độ mock) Chưa gọi backend.");
+        setSavingHotfix(false);
+      }, 300);
+      return;
+    }
+    try {
+      // Đọc lại config rồi ghi ĐÈ NGUYÊN CẢ object: PATCH thay cả
+      // `agent_config_json`, gửi thiếu khoá là xoá mất cấu hình khác.
+      const a = await api<AgentDetail>(`/agents/${AGENT_ID}`);
+      const cfg = { ...(a.agent_config_json ?? {}) };
+      if (text) {
+        cfg["prompt_hotfix"] = {
+          text,
+          updated_at: new Date().toISOString(),
+        } satisfies PromptHotfix;
+      } else {
+        delete cfg["prompt_hotfix"];
+      }
+      await api(`/agents/${AGENT_ID}`, {
+        method: "PATCH",
+        body: JSON.stringify({ agent_config_json: cfg }),
+      });
+      setSavedHotfix(text);
+      setHotfixMeta(text ? { text, updated_at: new Date().toISOString() } : null);
+      setHotfixMsg(text ? "Đã lưu. Trợ lý áp luật này từ lượt chat kế tiếp." : "Đã gỡ luật vá.");
+    } catch (e) {
+      setHotfixMsg(`Lỗi: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setSavingHotfix(false);
+    }
+  }, [api, hotfix]);
 
   const applyToAll = useCallback(
     async (mode: ReplyMode) => {
@@ -138,6 +201,59 @@ export function SettingsPanel() {
           >
             Chỉ áp cho hội thoại <strong>đang có</strong>. Khách mới nhắn sau đó vẫn theo mặc
             định của kênh — muốn tắt hẳn cho cả về sau, liên hệ bên vận hành.
+          </p>
+        </section>
+
+        <section className="mb-6">
+          <h3 className="mb-1 text-[15px] font-semibold" style={{ color: "var(--wa-text)" }}>
+            Luật bổ sung cho trợ lý
+          </h3>
+          <p className="mb-2 text-[13px]" style={{ color: "var(--wa-text-soft)" }}>
+            Viết vài dòng để sửa nhanh khi trợ lý nói sai — ví dụ đổi giá, đổi lịch, thêm quy
+            định mới. Luật này <strong>đè lên</strong> hướng dẫn gốc và áp cho mọi kênh.
+          </p>
+
+          <textarea
+            value={hotfix}
+            onChange={(e) => setHotfix(e.target.value.slice(0, HOTFIX_MAX_CHARS))}
+            rows={5}
+            placeholder="Ví dụ: Từ 20/8, học phí lớp trực tuyến là 1.800.000đ/tháng. Không nhận bé dưới 3 tuổi."
+            className="w-full resize-y rounded-xl border p-3 text-[14px] outline-none"
+            style={{ borderColor: "var(--wa-border-strong)", color: "var(--wa-text)" }}
+          />
+
+          <div className="mt-1.5 flex items-center justify-between gap-3">
+            <span className="text-[12px]" style={{ color: hotfix.length > HOTFIX_MAX_CHARS * 0.9 ? "#a33a33" : "var(--wa-text-soft)" }}>
+              {hotfix.length}/{HOTFIX_MAX_CHARS} ký tự
+            </span>
+            <button
+              onClick={() => void saveHotfix()}
+              disabled={savingHotfix || hotfix.trim() === savedHotfix.trim()}
+              className="rounded-full px-4 py-[6px] text-[13.5px] font-medium text-white transition disabled:opacity-40"
+              style={{ background: "var(--wa-teal)" }}
+            >
+              {savingHotfix ? "Đang lưu…" : "Lưu luật"}
+            </button>
+          </div>
+
+          {hotfixMeta?.updated_at && (
+            <p className="mt-1.5 text-[12px]" style={{ color: "var(--wa-text-soft)" }}>
+              Sửa lần cuối {new Date(hotfixMeta.updated_at).toLocaleString("vi-VN")}
+              {hotfixMeta.updated_by ? ` · ${hotfixMeta.updated_by}` : ""}
+            </p>
+          )}
+          {hotfixMsg && (
+            <p className="mt-2 rounded-lg bg-[#e7fce3] px-3 py-2 text-[13px]" style={{ color: "#0a7a52" }}>
+              {hotfixMsg}
+            </p>
+          )}
+
+          <p
+            className="mt-2 rounded-lg border px-3 py-2 text-[12.5px]"
+            style={{ borderColor: "var(--wa-border)", background: "var(--wa-panel-head)", color: "var(--wa-text-soft)" }}
+          >
+            Dùng cho việc vá gấp vài dòng. Nội dung dài hoặc lâu dài nên đưa vào tài liệu để
+            trợ lý tra cứu, thay vì nhét hết vào đây.
           </p>
         </section>
 

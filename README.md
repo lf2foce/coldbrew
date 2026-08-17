@@ -91,6 +91,31 @@ trên màn hình. Muốn tắt hẳn cho cả về sau cần sửa backend: thê
 
 **`unread` chưa có ở backend** — badge số chỉ hiện với dữ liệu mock.
 
+## Luật vá (hotfix)
+
+Ô soạn ở tab Cài đặt ghi vào `agent_config_json.prompt_hotfix`; backend ghép nó
+vào **cuối** prompt lúc chạy (`chat_runtime_prompt._append_hotfix`), sau cả khối
+`[[ADDITIONAL_PAGE_CONTEXT]]` của kênh — luật vá phải đè được luật cũ.
+
+Vì sao ở tầng agent chứ không dùng lại `prompt_override` của integration:
+`prompt_override` sống trong `integration.config_json`, mà OAuth kết nối lại kênh
+GHI ĐÈ cả config (chỉ khoá `meta` được giữ) → luật vá sẽ biến mất im lặng sau một
+lần khách nối lại Fanpage. Nó cũng gắn theo kênh, nên 5 Fanpage phải vá 5 lần.
+
+Trần 2.000 ký tự: đây là chỗ sửa nhanh vài dòng, không phải prompt thứ hai.
+
+⚠ `PATCH /agents/{id}` thay **cả** `agent_config_json` — phải đọc lại rồi ghi đè
+nguyên object, gửi thiếu khoá là xoá mất cấu hình khác (`voucher_context`,
+`strict_grounding`, `rendering`…).
+
+## Realtime
+
+`lib/use-conversation-stream.ts`, chép pattern của `messages-page-client.tsx`:
+`fetch` + `getReader()` (KHÔNG `EventSource` — nó không set được header), sự kiện
+chỉ mang `{id, role}` nên phải gọi lấy tin đầy đủ, dedupe theo `id` **và** theo
+bản lạc quan `tmp-…` trùng nội dung, `AbortController` huỷ khi đổi hội thoại,
+backoff 1→15s, `mark-read` throttle 10s.
+
 ## Thu hẹp về một agent
 
 App truyền `agent_id` vào truy vấn, **backend lọc ở SQL**. API có thể trả nhiều
