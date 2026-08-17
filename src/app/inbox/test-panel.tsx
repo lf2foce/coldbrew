@@ -21,7 +21,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AGENT_ID } from "@/lib/brand";
 import { MOCK } from "@/lib/mock";
 import { Composer } from "@/components/composer";
-import { makeApi, makeRawApi } from "@/lib/api";
+import { makeApi, makeStreamApi } from "@/lib/api";
 import type { Conversation, Message } from "@/lib/types";
 
 function timeOnly(iso: string): string {
@@ -31,7 +31,7 @@ function timeOnly(iso: string): string {
 export function TestPanel() {
   const { getToken } = useAuth();
   const api = useMemo(() => makeApi(getToken), [getToken]);
-  const raw = useMemo(() => makeRawApi(getToken), [getToken]);
+  const stream = useMemo(() => makeStreamApi(getToken), [getToken]);
 
   const [sessions, setSessions] = useState<Conversation[] | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -114,35 +114,30 @@ export function TestPanel() {
       // Có `conversation_id` thì nói tiếp phiên cũ; không có thì backend mở phiên mới.
       const body: Record<string, string> = { message: content };
       if (activeId) body.conversation_id = activeId;
-      const text = await raw(`/agents/${AGENT_ID}/chat`, {
-        method: "POST",
-        body: JSON.stringify(body),
-      });
-
-      // Endpoint trả SSE: gom mảnh `delta`, và bắt `conversation` để nhớ phiên mới.
-      const parts: string[] = [];
+      // Bong bóng rỗng dựng TRƯỚC, rồi mỗi mảnh `delta` nối thêm vào — chữ chạy
+      // dần thay vì hiện một cục sau 10 giây.
+      const replyId = `a-${Date.now()}`;
+      let acc = "";
       let newConvId: string | null = null;
-      for (const line of text.split("\n")) {
-        if (!line.startsWith("data: ")) continue;
-        try {
-          const ev = JSON.parse(line.slice(6));
-          if (ev.type === "delta") parts.push(String(ev.content ?? ""));
-          else if (ev.type === "conversation" && ev.conversation_id) {
-            newConvId = String(ev.conversation_id);
-          }
-        } catch {
-          /* dòng không phải JSON — bỏ qua */
-        }
-      }
       setMessages((p) => [
         ...p,
-        {
-          id: `a-${Date.now()}`,
-          role: "assistant",
-          content: parts.join("").trim() || "(trợ lý không trả lời)",
-          created_at: new Date().toISOString(),
-        },
+        { id: replyId, role: "assistant", content: "", created_at: new Date().toISOString() },
       ]);
+
+      await stream(`/agents/${AGENT_ID}/chat`, { method: "POST", body: JSON.stringify(body) }, (ev) => {
+        if (ev.type === "delta") {
+          acc += String(ev.content ?? "");
+          setMessages((p) => p.map((m) => (m.id === replyId ? { ...m, content: acc } : m)));
+        } else if (ev.type === "conversation" && ev.conversation_id) {
+          newConvId = String(ev.conversation_id);
+        }
+      });
+
+      if (!acc.trim()) {
+        setMessages((p) =>
+          p.map((m) => (m.id === replyId ? { ...m, content: "(trợ lý không trả lời)" } : m)),
+        );
+      }
       if (newConvId && !activeId) {
         setActiveId(newConvId);
         void loadSessions();
@@ -152,7 +147,7 @@ export function TestPanel() {
     } finally {
       setBusy(false);
     }
-  }, [draft, busy, activeId, raw, loadSessions]);
+  }, [draft, busy, activeId, stream, loadSessions]);
 
   return (
     <div className="flex h-full min-w-0 flex-1">
@@ -265,15 +260,6 @@ export function TestPanel() {
               </div>
             );
           })}
-          {busy && (
-            <div className="mt-2 flex justify-start">
-              <div className="rounded-lg px-3 py-2 shadow-sm" style={{ background: "var(--wa-panel)" }}>
-                <span className="text-[13px]" style={{ color: "var(--wa-text-soft)" }}>
-                  Trợ lý đang soạn…
-                </span>
-              </div>
-            </div>
-          )}
           {error && (
             <p className="mt-2 text-center text-[13px] text-red-700">Lỗi gọi trợ lý: {error}</p>
           )}
