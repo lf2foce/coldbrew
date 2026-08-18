@@ -17,7 +17,8 @@ import { useAuth } from "@clerk/nextjs";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AGENT_ID, BRAND } from "@/lib/brand";
 import { MOCK, MOCK_CONVERSATIONS, MOCK_DRAFTS, MOCK_MESSAGES } from "@/lib/mock";
-import type { Conversation, Draft, Message, ReplyMode } from "@/lib/types";
+import type { Conversation, Draft, Message, ReplyMode, SearchHit } from "@/lib/types";
+import { Highlight } from "@/components/highlight";
 import { Avatar, DotsIcon, IconBtn, Ticks } from "@/components/ui";
 import { ReplyModeChip, ReplyModeSheet } from "@/components/reply-mode-sheet";
 import { Rail, type RailTab } from "@/components/rail";
@@ -73,6 +74,9 @@ export default function InboxPage() {
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [composer, setComposer] = useState("");
   const [query, setQuery] = useState("");
+  // Khớp theo NỘI DUNG tin (backend trgm) — tách khỏi lọc theo tên ở client.
+  const [hits, setHits] = useState<Map<string, string>>(new Map());
+  const [searching, setSearching] = useState(false);
   const [filter, setFilter] = useState<Filter>("all");
   const [error, setError] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -82,6 +86,12 @@ export default function InboxPage() {
   // client ra hai kết quả khác nhau → hydration mismatch.
   const [now, setNow] = useState<Date | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
+  // Giữ danh sách trong ref: hiệu ứng tìm kiếm vừa ĐỌC vừa GHI `convs`, đưa nó
+  // vào deps là vòng lặp vô tận (set → effect chạy lại → set…).
+  const convsRef = useRef<Conversation[] | null>(convs);
+  useEffect(() => {
+    convsRef.current = convs;
+  }, [convs]);
 
   useEffect(() => setNow(new Date()), []);
 
@@ -125,6 +135,58 @@ export default function InboxPage() {
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, drafts]);
+
+  // Tìm theo NỘI DUNG tin: debounce 300ms rồi hỏi backend. Dưới 2 ký tự thì bỏ
+  // qua — gõ một chữ là quét cả kho, tốn mà chẳng lọc được gì.
+  useEffect(() => {
+    const q = query.trim();
+    // `agent_id` là tham số BẮT BUỘC của endpoint search — thiếu là 422, nên
+    // không có nó thì đừng gọi. Ô tìm kiếm vẫn lọc theo tên ở client.
+    if (MOCK || !AGENT_ID || q.length < 2) {
+      setHits(new Map());
+      setSearching(false);
+      return;
+    }
+    setSearching(true);
+    let cancelled = false;
+    const t = window.setTimeout(async () => {
+      try {
+        const qs = new URLSearchParams({ q, agent_id: AGENT_ID });
+        const found = await api<SearchHit[]>(`/conversations/search?${qs}`);
+        if (cancelled) return;
+        setHits(new Map(found.map((h) => [h.conversation_id, h.snippet])));
+
+        // Backend quét TOÀN hộp thư, nhưng danh sách bên trái chỉ có phần đã
+        // tải → hit ở hội thoại chưa nạp sẽ không thành dòng nào. Nạp bù (tối
+        // đa 20) rồi ghép vào, khử trùng theo id.
+        const loaded = new Set((convsRef.current ?? []).map((c) => c.id));
+        const missing = [...new Set(found.map((h) => h.conversation_id))]
+          .filter((id) => !loaded.has(id))
+          .slice(0, 20);
+        if (missing.length) {
+          const got = (
+            await Promise.all(
+              missing.map((id) => api<Conversation>(`/conversations/${id}`).catch(() => null)),
+            )
+          ).filter((c): c is Conversation => c != null);
+          if (!cancelled && got.length) {
+            setConvs((prev) => {
+              const seen = new Set((prev ?? []).map((c) => c.id));
+              return [...(prev ?? []), ...got.filter((c) => !seen.has(c.id))];
+            });
+          }
+        }
+      } catch {
+        if (!cancelled) setHits(new Map());
+      } finally {
+        if (!cancelled) setSearching(false);
+      }
+    }, 300);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
+  }, [query, api]);
 
   const active = convs?.find((c) => c.id === activeId) ?? null;
 
@@ -267,9 +329,11 @@ export default function InboxPage() {
     const q = query.trim().toLowerCase();
     let list = convs;
     if (filter === "unread") list = list.filter((c) => (c.unread ?? 0) > 0 || c.status === "pending");
-    if (q) list = list.filter((c) => (c.title || "").toLowerCase().includes(q));
+    // Khớp TÊN (client) hoặc khớp NỘI DUNG (backend) — thiếu vế thứ hai thì gõ
+    // "sổ hồng" ra rỗng dù có hội thoại nhắc tới.
+    if (q) list = list.filter((c) => (c.title || "").toLowerCase().includes(q) || hits.has(c.id));
     return list;
-  }, [convs, query, filter]);
+  }, [convs, query, filter, hits]);
 
   /** Dòng xem trước = tin cuối. Tin cuối do MÌNH gửi thì kèm tích — nếp WhatsApp. */
   const preview = useCallback((c: Conversation): { text: string; mine: boolean } => {
@@ -338,9 +402,14 @@ export default function InboxPage() {
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Tìm kiếm hoặc bắt đầu đoạn chat mới"
+                placeholder="Tìm tên khách hoặc nội dung tin nhắn"
                 className="min-w-0 flex-1 bg-transparent text-[14px] outline-none placeholder:text-[var(--wa-text-soft)]"
               />
+              {searching && (
+                <span className="shrink-0 text-[11px]" style={{ color: "var(--wa-text-soft)" }}>
+                  đang tìm…
+                </span>
+              )}
             </div>
           </div>
 
@@ -411,7 +480,7 @@ export default function InboxPage() {
                   <span className="min-w-0 flex-1">
                     <span className="flex items-baseline justify-between gap-2">
                       <span className="truncate text-[16px]" style={{ color: "var(--wa-text)" }}>
-                        {name}
+                        <Highlight text={name} term={query} />
                       </span>
                       <span
                         className="shrink-0 text-[12px]"
@@ -432,7 +501,14 @@ export default function InboxPage() {
                           fontWeight: unread > 0 ? 500 : 400,
                         }}
                       >
-                        {pv.text}
+                        {/* Đang tìm và cuộc này khớp NỘI DUNG → hiện đoạn trích
+                            thay vì tin cuối: người tìm cần thấy chỗ khớp, không
+                            phải câu mới nhất. */}
+                        {hits.has(c.id) ? (
+                          <Highlight text={hits.get(c.id)!} term={query} />
+                        ) : (
+                          pv.text
+                        )}
                       </span>
                       {c.reply_mode_override === "off" && (
                         <span className="ml-auto shrink-0 text-[11px]" title="Đã tắt trợ lý">

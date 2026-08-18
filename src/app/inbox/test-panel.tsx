@@ -265,12 +265,12 @@ export function TestPanel() {
                     // Bong bóng đã dựng nhưng chữ chưa tới: ba chấm nhấp nháy NGAY
                     // TRONG bong bóng. Làm chỉ báo thành khối riêng thì lúc chữ bắt
                     // đầu chạy sẽ thấy hai khối cùng lúc.
-                    <span className="flex items-center gap-1 px-1 py-[5px]" aria-label="Trợ lý đang soạn">
+                    <span className="flex items-center gap-[3px] px-[2px] py-[6px]" aria-label="Trợ lý đang soạn">
                       {[0, 1, 2].map((i) => (
                         <span
                           key={i}
-                          className="h-[7px] w-[7px] animate-bounce rounded-full"
-                          style={{ background: "var(--wa-text-soft)", animationDelay: `${i * 0.15}s` }}
+                          className="wa-dot h-[5px] w-[5px] rounded-full"
+                          style={{ background: "#9aa5ab", animationDelay: `${i * 0.16}s` }}
                         />
                       ))}
                     </span>

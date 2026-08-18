@@ -58,6 +58,7 @@ Backend đổi hình dạng phản hồi ở bất kỳ dòng nào trong bảng 
 | `GET /v1/conversations/{id}/drafts` | nháp bot đề xuất |
 | `POST /v1/conversations/{id}/drafts/{draftId}/{approve\|dismiss\|edit-and-send}` | xử lý nháp |
 | `GET /v1/conversations/{id}/events` | realtime (SSE, phải đi qua proxy) |
+| `GET /v1/conversations/search?agent_id&q` | tìm theo nội dung tin (`agent_id` BẮT BUỘC, `q` ≥2 ký tự) |
 | `GET /v1/agents/{id}/tickets` | tab Yêu cầu khách (envelope `{items,total}`) |
 | `PATCH /v1/agents/{id}/tickets/{tid}` | đổi trạng thái ticket |
 | `GET /v1/business/agents/{id}/quality` | tab Trợ lý còn yếu |

@@ -44,3 +44,13 @@ body {
 
 /* Thanh rail bên trái — nền ấm hơn panel để tách lớp. */
 .wa-rail { background: var(--wa-rail); }
+
+/* Ba chấm "đang soạn". `animate-bounce` của Tailwind nảy 25% chiều cao — quá
+   mạnh cho chấm 5px, nhìn giật. Ở đây chỉ mờ/tỏ nhẹ và nhích 2px. */
+@keyframes wa-dot {
+  0%, 60%, 100% { opacity: 0.35; transform: translateY(0); }
+  30%           { opacity: 1;    transform: translateY(-2px); }
+}
+.wa-dot {
+  animation: wa-dot 1.2s ease-in-out infinite;
+}

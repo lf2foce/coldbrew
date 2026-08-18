@@ -169,3 +169,6 @@ export const AUTO_REPLY_EDITABLE = new Set(["facebook", "instagram"]);
 
 /** Kênh trò chuyện — lọc bỏ ad_partner, email… vốn không phải nơi khách nhắn. */
 export const CHAT_PLATFORMS = new Set(["facebook", "instagram", "zalo", "lark", "telegram", "web"]);
+
+/** Một tin khớp khi tìm nội dung — `GET /conversations/search`. */
+export type SearchHit = { conversation_id: string; message_id: string; snippet: string };
