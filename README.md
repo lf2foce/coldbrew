@@ -12,7 +12,7 @@ về backend ngoài danh sách endpoint dưới đây.
 ```bash
 cp .env.example .env.local     # điền giá trị
 pnpm install
-pnpm dev                       # http://localhost:3100
+pnpm dev                       # http://localhost:3005
 ```
 
 ## Biến môi trường
@@ -37,9 +37,53 @@ pnpm dev                       # http://localhost:3100
 
 Không có màn đăng ký. Tài khoản do bên vận hành tạo tay:
 
-1. Clerk Dashboard → Users → **Create user** (email + password, không gửi mail mời)
-2. Mời user đó vào workspace của khách với vai `editor`
-3. Đưa email + password cho khách
+Password sống ở **Clerk**, membership sống ở **phenau** — hai hệ khác nhau, và
+phenau không bao giờ giữ password. Thứ tự BẮT BUỘC:
+
+1. **Clerk** Dashboard → Users → **Create user** (email + password, không gửi mail mời)
+2. **Cho tài khoản đó đăng nhập một lần** (coldbrew hoặc dashboard chính) — đây là
+   bước hay bị bỏ sót, xem lý do dưới
+3. **phenau** → workspace của khách → Thêm thành viên bằng email, vai `editor`
+4. Đưa email + password cho khách
+
+Vì sao bước 2: `add_member_by_email` tra bảng `users` của phenau theo email và
+**ném lỗi `User with this email has not registered yet`** nếu chưa có. Bản ghi đó
+chỉ sinh ra khi (a) webhook Clerk `user.created` chạy, hoặc (b) user đăng nhập lần
+đầu. Ở local webhook không gọi tới được `localhost:8000` → tạo user ở Clerk xong mà
+add member vẫn báo "chưa đăng ký". Đăng nhập một lần là xong.
+
+Hệ quả bước 2: lần đăng nhập đầu **tự cấp cho user một workspace cá nhân trống**
+(`upsert_user_and_tenant`). Nên sau bước 3 user thuộc 2 workspace, và backend mặc
+định bind vào workspace CHÍNH (cái trống) → đây chính là lý do
+`NEXT_PUBLIC_TENANT_ID` bắt buộc, thiếu là hộp thư trống trơn không báo lỗi.
+
+Đường khác — `POST /tenants/me/members/bulk-invite` — nhận cả email chưa có tài
+khoản (ghi `pending_invites` + gửi Clerk Invitation, webhook attach sau). Nhưng
+đường đó để **khách tự đặt password** qua link mời, ngược với mô hình ở đây là
+agency cấp sẵn tài khoản.
+
+⚠ **Password chỉ đăng nhập được nếu instance bật nó làm first factor.** Clerk tách
+hai thứ: *có* password (`password.enabled`, bắt buộc lúc tạo user) và *đăng nhập
+bằng* password (`password.used_for_first_factor`). Bật cái sau ở Dashboard →
+User & authentication → toggle **Password**. Không bật thì màn đăng nhập chỉ hỏi
+email rồi gửi mã OTP, dù user đã có password.
+
+Instance dev (`pk_test`) dùng CHUNG với frontend chính → bật là cả hai đổi theo,
+nhưng chỉ ở dev. **Instance production (`pk_live`) có bộ settings RIÊNG** — deploy
+cho khách xong phải bật lại bên đó, nếu không màn đăng nhập thật vẫn là OTP.
+
+Kiểm trạng thái thật (giao diện Dashboard và API từng nói ngược nhau: `auth_config
+.first_factors` có `password` trong khi `attributes.password.used_for_first_factor`
+là `false` — tin bước đăng nhập thật, đừng tin một trường):
+
+```bash
+PK=$(grep NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY .env.local | cut -d= -f2)
+B=$(echo -n "$PK" | sed 's/^pk_test_//;s/^pk_live_//')
+while [ $(( ${#B} % 4 )) -ne 0 ]; do B="${B}="; done
+curl -s "https://$(echo -n "$B" | base64 -d | tr -d '$')/v1/environment" \
+  | node -pe 'const a=JSON.parse(require("fs").readFileSync(0)).user_settings.attributes; \
+      `password first-factor: ${a.password.used_for_first_factor}\nemail: ${a.email_address.first_factors}`'
+```
 
 ## Hợp đồng với backend
 
