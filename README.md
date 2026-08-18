@@ -115,6 +115,19 @@ Trần 2.000 ký tự: đây là chỗ sửa nhanh vài dòng, không phải pro
 nguyên object, gửi thiếu khoá là xoá mất cấu hình khác (`voucher_context`,
 `strict_grounding`, `rendering`…).
 
+## SSE phải đi qua route handler, KHÔNG qua rewrite
+
+`next.config.ts` rewrite đi bằng `fetch()` của Node, mà `fetch()` **đệm** phản
+hồi: backend bắn từng mảnh `delta` ngay từ giây đầu nhưng trình duyệt chỉ nhận
+được khi stream đóng → chữ hiện một cục sau 5–10 giây, dù client đã đọc bằng
+`getReader()`.
+
+Nên chat thử gọi `src/app/api/chat/[agentId]/route.ts` — dùng `node:http` đẩy
+từng chunk, kèm `X-Accel-Buffering: no` để proxy phía trước cũng không đệm lại.
+Đây đúng cách dashboard chính làm.
+
+Endpoint đọc (`/conversations/*`) thì rewrite bình thường là đủ.
+
 ## Realtime
 
 `lib/use-conversation-stream.ts`, chép pattern của `messages-page-client.tsx`:

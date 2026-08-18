@@ -58,6 +58,8 @@ export function makeApi(getToken: Getter) {
  * từng mảnh `delta` ngay từ giây đầu. Đọc dần thì chữ chạy như ChatGPT.
  */
 export function makeStreamApi(getToken: Getter) {
+  /** `path` bắt đầu bằng "/api/" thì gọi thẳng (route handler của app);
+   *  còn lại thì ghép tiền tố proxy `/api/py/v1`. */
   return async function stream(
     path: string,
     init: RequestInit,
@@ -68,8 +70,11 @@ export function makeStreamApi(getToken: Getter) {
     if (init.body && !headers.has("Content-Type")) {
       headers.set("Content-Type", "application/json");
     }
-    const res = await fetch(`${API_PREFIX}${path}`, { ...init, headers });
-    if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+    const url = path.startsWith("/api/") ? path : `${API_PREFIX}${path}`;
+    const res = await fetch(url, { ...init, headers });
+    if (!res.ok || !res.body) {
+      throw new Error(`HTTP ${res.status}: ${await res.text().catch(() => "")}`.trim());
+    }
 
     const reader = res.body.getReader();
     const decoder = new TextDecoder();

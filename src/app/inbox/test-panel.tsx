@@ -12,7 +12,11 @@
  * `scope=mine` là phiên của CHÍNH người đang đăng nhập, khác `scope=all` (hội
  * thoại khách) mà hộp thư dùng. Cùng endpoint, khác scope.
  *
- * Gửi qua `POST /agents/{id}/chat` (đường đã đăng nhập). Agent demo để
+ * Gửi qua route handler `/api/chat/{id}` chứ KHÔNG qua rewrite `/api/py`:
+ * rewrite đi bằng `fetch()` của Node, mà `fetch()` ĐỆM phản hồi nên chữ hiện
+ * một cục sau 5–10 giây. Route handler dùng `node:http` đẩy từng chunk.
+ *
+ * Nó gọi tiếp `POST /agents/{id}/chat` (đường đã đăng nhập). Agent demo để
  * visibility `internal` nên `/public/agents/...` trả 404 — không dùng được.
  */
 
@@ -124,7 +128,7 @@ export function TestPanel() {
         { id: replyId, role: "assistant", content: "", created_at: new Date().toISOString() },
       ]);
 
-      await stream(`/agents/${AGENT_ID}/chat`, { method: "POST", body: JSON.stringify(body) }, (ev) => {
+      await stream(`/api/chat/${AGENT_ID}`, { method: "POST", body: JSON.stringify(body) }, (ev) => {
         if (ev.type === "delta") {
           acc += String(ev.content ?? "");
           setMessages((p) => p.map((m) => (m.id === replyId ? { ...m, content: acc } : m)));
@@ -253,9 +257,24 @@ export function TestPanel() {
                   className="max-w-[85%] rounded-lg px-[9px] py-[6px] shadow-sm md:max-w-[65%]"
                   style={{ background: mine ? "var(--wa-out)" : "var(--wa-panel)" }}
                 >
-                  <p className="whitespace-pre-wrap text-[14.2px] leading-[19px]" style={{ color: "var(--wa-text)" }}>
-                    {m.content}
-                  </p>
+                  {m.content ? (
+                    <p className="whitespace-pre-wrap text-[14.2px] leading-[19px]" style={{ color: "var(--wa-text)" }}>
+                      {m.content}
+                    </p>
+                  ) : (
+                    // Bong bóng đã dựng nhưng chữ chưa tới: ba chấm nhấp nháy NGAY
+                    // TRONG bong bóng. Làm chỉ báo thành khối riêng thì lúc chữ bắt
+                    // đầu chạy sẽ thấy hai khối cùng lúc.
+                    <span className="flex items-center gap-1 px-1 py-[5px]" aria-label="Trợ lý đang soạn">
+                      {[0, 1, 2].map((i) => (
+                        <span
+                          key={i}
+                          className="h-[7px] w-[7px] animate-bounce rounded-full"
+                          style={{ background: "var(--wa-text-soft)", animationDelay: `${i * 0.15}s` }}
+                        />
+                      ))}
+                    </span>
+                  )}
                 </div>
               </div>
             );
