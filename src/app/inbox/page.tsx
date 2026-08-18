@@ -75,7 +75,7 @@ export default function InboxPage() {
   const [composer, setComposer] = useState("");
   const [query, setQuery] = useState("");
   // Khớp theo NỘI DUNG tin (backend trgm) — tách khỏi lọc theo tên ở client.
-  const [hits, setHits] = useState<Map<string, string>>(new Map());
+  const [hits, setHits] = useState<Map<string, { snippet: string; messageId: string }>>(new Map());
   const [searching, setSearching] = useState(false);
   const [filter, setFilter] = useState<Filter>("all");
   const [error, setError] = useState<string | null>(null);
@@ -88,6 +88,10 @@ export default function InboxPage() {
   const endRef = useRef<HTMLDivElement>(null);
   // Giữ danh sách trong ref: hiệu ứng tìm kiếm vừa ĐỌC vừa GHI `convs`, đưa nó
   // vào deps là vòng lặp vô tận (set → effect chạy lại → set…).
+  // Tin cần cuộn tới + tô sau khi mở hội thoại từ kết quả tìm kiếm.
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+  const pendingTargetRef = useRef<string | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const convsRef = useRef<Conversation[] | null>(convs);
   useEffect(() => {
     convsRef.current = convs;
@@ -109,7 +113,8 @@ export default function InboxPage() {
     }
   }, [api]);
 
-  const openConv = useCallback(async (id: string) => {
+  const openConv = useCallback(async (id: string, targetMessageId?: string) => {
+    pendingTargetRef.current = targetMessageId ?? null;
     setActiveId(id);
     setMessages(null);
     setDrafts([]);
@@ -133,6 +138,25 @@ export default function InboxPage() {
   }, [loadConvs]);
 
   useEffect(() => {
+    const target = pendingTargetRef.current;
+    if (target) {
+      // Chờ DOM dựng xong rồi mới tìm phần tử. Tin cũ hơn cửa sổ đã tải thì
+      // không có trong DOM → nhả về đáy thay vì kẹt im.
+      setHighlightId(target);
+      const t1 = window.setTimeout(() => {
+        const el = document.getElementById(`msg-${target}`);
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+        else scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
+        pendingTargetRef.current = null;
+      }, 200);
+      const t2 = window.setTimeout(() => setHighlightId(null), 2800);
+      return () => {
+        window.clearTimeout(t1);
+        window.clearTimeout(t2);
+      };
+    }
+    // Không nhắm tin nào → bám đáy như bình thường. Bám đáy trong lúc đang chờ
+    // cuộn tới tin cũ sẽ cuốn mất đúng cái vừa tô.
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, drafts]);
 
@@ -154,7 +178,7 @@ export default function InboxPage() {
         const qs = new URLSearchParams({ q, agent_id: AGENT_ID });
         const found = await api<SearchHit[]>(`/conversations/search?${qs}`);
         if (cancelled) return;
-        setHits(new Map(found.map((h) => [h.conversation_id, h.snippet])));
+        setHits(new Map(found.map((h) => [h.conversation_id, { snippet: h.snippet, messageId: h.message_id }])));
 
         // Backend quét TOÀN hộp thư, nhưng danh sách bên trái chỉ có phần đã
         // tải → hit ở hội thoại chưa nạp sẽ không thành dòng nào. Nạp bù (tối
@@ -466,7 +490,7 @@ export default function InboxPage() {
               return (
                 <button
                   key={c.id}
-                  onClick={() => void openConv(c.id)}
+                  onClick={() => void openConv(c.id, hits.get(c.id)?.messageId)}
                   className="flex w-full items-center gap-3 px-3 py-[9px] text-left transition"
                   style={{ background: on ? "var(--wa-panel-active)" : undefined }}
                   onMouseEnter={(e) => {
@@ -505,7 +529,7 @@ export default function InboxPage() {
                             thay vì tin cuối: người tìm cần thấy chỗ khớp, không
                             phải câu mới nhất. */}
                         {hits.has(c.id) ? (
-                          <Highlight text={hits.get(c.id)!} term={query} />
+                          <Highlight text={hits.get(c.id)!.snippet} term={query} />
                         ) : (
                           pv.text
                         )}
@@ -596,7 +620,7 @@ export default function InboxPage() {
                 </IconBtn>
               </header>
 
-              <div className="wa-doodle min-h-0 flex-1 overflow-y-auto px-4 py-3 md:px-[6%]">
+              <div ref={scrollRef} className="wa-doodle min-h-0 flex-1 overflow-y-auto px-4 py-3 md:px-[6%]">
                 {messages === null && (
                   <p className="text-center text-sm" style={{ color: "var(--wa-text-soft)" }}>
                     Đang tải…
@@ -626,8 +650,18 @@ export default function InboxPage() {
                         className={`flex ${mine ? "justify-end" : "justify-start"} ${firstOfGroup ? "mt-2" : "mt-[2px]"}`}
                       >
                         <div
-                          className="relative max-w-[85%] rounded-lg px-[9px] py-[6px] shadow-sm md:max-w-[65%]"
-                          style={{ background: mine ? "var(--wa-out)" : "var(--wa-panel)" }}
+                          id={`msg-${m.id}`}
+                          className={`relative max-w-[85%] rounded-lg px-[9px] py-[6px] shadow-sm transition-shadow md:max-w-[65%] ${
+                            highlightId === m.id ? "ring-2" : ""
+                          }`}
+                          style={{
+                            background: mine ? "var(--wa-out)" : "var(--wa-panel)",
+                            // Vòng vàng cùng tông với chỗ tô trong danh sách, để
+                            // mắt nối được "dòng vừa bấm" với "tin vừa nhảy tới".
+                            ...(highlightId === m.id
+                              ? { "--tw-ring-color": "#f0c14b" } as React.CSSProperties
+                              : {}),
+                          }}
                         >
                           {/* Phân biệt bot với người thật: cùng phía nhưng khác
                               nhãn, không thì người trực không biết câu nào bot
