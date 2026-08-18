@@ -320,11 +320,6 @@ export function SettingsPanel() {
           <h3 className="mb-1 text-[15px] font-semibold" style={{ color: "var(--wa-text)" }}>
             Luật bổ sung cho trợ lý
           </h3>
-          <p className="mb-2 text-[13px]" style={{ color: "var(--wa-text-soft)" }}>
-            Viết vài dòng để sửa nhanh khi trợ lý nói sai — đổi giá, đổi lịch, thêm quy định
-            mới. Luật này <strong>đè lên</strong> hướng dẫn gốc và áp cho mọi kênh.
-          </p>
-
           <textarea
             value={hotfix}
             onChange={(e) => setHotfix(e.target.value.slice(0, HOTFIX_MAX_CHARS))}
@@ -400,7 +395,6 @@ export function SettingsPanel() {
             {[
               ["Tên hiển thị", BRAND.name],
               ["Mã trợ lý", AGENT_ID ? `${AGENT_ID.slice(0, 8)}…` : "chưa cấu hình"],
-              ["Nguồn dữ liệu", MOCK ? "Dữ liệu giả (mock)" : "Dữ liệu thật"],
             ].map(([k, v], i) => (
               <div
                 key={k}
