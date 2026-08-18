@@ -17,7 +17,7 @@
  * đừng trộn.
  */
 
-import { useAuth } from "@clerk/nextjs";
+import { useAuth, useClerk, useUser } from "@clerk/nextjs";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AGENT_ID, BRAND } from "@/lib/brand";
 import { MOCK } from "@/lib/mock";
@@ -96,6 +96,8 @@ function Choice({
 
 export function SettingsPanel() {
   const { getToken } = useAuth();
+  const { signOut } = useClerk();
+  const { user } = useUser();
   const api = useMemo(() => makeApi(getToken), [getToken]);
 
   const [channels, setChannels] = useState<Integration[] | null>(MOCK ? MOCK_INTEGRATIONS : null);
@@ -360,6 +362,33 @@ export function SettingsPanel() {
               {hotfixMsg}
             </p>
           )}
+        </section>
+
+        {/* ── Tài khoản ── */}
+        <section className="mb-6">
+          <h3 className="mb-2 text-[15px] font-semibold" style={{ color: "var(--wa-text)" }}>
+            Tài khoản
+          </h3>
+          <div
+            className="flex items-center justify-between gap-3 rounded-xl border p-3"
+            style={{ borderColor: "var(--wa-border)" }}
+          >
+            <span className="min-w-0">
+              <span className="block truncate text-[14.5px]" style={{ color: "var(--wa-text)" }}>
+                {user?.primaryEmailAddress?.emailAddress ?? user?.username ?? "Đang đăng nhập"}
+              </span>
+              <span className="block text-[12.5px]" style={{ color: "var(--wa-text-soft)" }}>
+                Đăng xuất rồi vào lại cần email và mật khẩu
+              </span>
+            </span>
+            <button
+              onClick={() => void signOut({ redirectUrl: "/sign-in" })}
+              className="shrink-0 rounded-full border px-3.5 py-[6px] text-[13.5px] font-medium transition hover:bg-black/[0.03]"
+              style={{ borderColor: "var(--wa-border-strong)", color: "#a33a33" }}
+            >
+              Đăng xuất
+            </button>
+          </div>
         </section>
 
         {/* ── Thông tin ── */}
