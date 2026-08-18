@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
-import { viVN } from "@clerk/localizations";
 import { BRAND } from "@/lib/brand";
+import { localization } from "@/lib/clerk-localization";
 import "./globals.css";
 
 // Title đọc từ BRAND — tuyệt đối không hardcode tên nền tảng ở đây. Đây là app
@@ -9,21 +9,6 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: BRAND.name,
   description: "Hộp thư chăm sóc khách hàng",
-};
-
-// Ghi đè các chuỗi lộ tên Clerk-app ("Sign in to Phe Nau" lấy từ applicationName
-// của Clerk instance — instance này dùng chung với dashboard chính nên KHÔNG đổi
-// được ở Dashboard; phải đè bằng localization tại từng app).
-const localization = {
-  ...viVN,
-  signIn: {
-    ...viVN.signIn,
-    start: {
-      ...viVN.signIn?.start,
-      title: "Đăng nhập",
-      subtitle: "Đăng nhập để xem hộp thư của bạn",
-    },
-  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
