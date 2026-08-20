@@ -53,9 +53,26 @@ Cái giá đã chấp nhận, biết trước chứ không phải sót:
 | Một danh tính | duyệt nháp / chia ticket / `scope=mine` chung một người | khi cần truy vết ai làm gì |
 
 Cookie phiên **được ký HMAC-SHA256** bằng `SESSION_SECRET`, `httpOnly` + `sameSite=lax`,
-hạn 12 giờ nằm trong phần được ký. Kiểu "so mật khẩu xong set `logged_in=1`" là vô
-nghĩa — ai cũng tự đặt cookie đó trong DevTools. Cổng đăng nhập chặn dò mật khẩu:
-8 lần sai / 10 phút theo IP, mỗi lần sai chậm 400ms.
+hạn 12 giờ. Kiểu "so mật khẩu xong set `logged_in=1`" là vô nghĩa — ai cũng tự đặt
+cookie đó trong DevTools.
+
+Trong phần được ký có **cả hạn lẫn dấu vân tay của `APP_PASSWORD`**, nên **đổi mật
+khẩu là mọi phiên đang mở chết ngay**. Không có vân tay đó thì đổi mật khẩu chẳng
+đuổi được ai: cookie đã phát vẫn sống trọn 12 giờ — mà đổi mật khẩu chính là cách
+duy nhất thu hồi quyền ở mô hình dùng chung.
+
+Chặn dò mật khẩu: 8 lần sai / 10 phút theo IP, mỗi lần sai chậm 400ms; vào đúng thì
+xoá lịch sử sai của IP đó.
+
+Mọi request **ghi** phải cùng `Origin` với app. `sameSite=lax` chưa đủ: nó chặn
+cross-SITE tính theo eTLD+1, nên `blog.khachhang.vn` — thường là WordPress và hay bị
+chiếm — vẫn same-site và cookie vẫn được gửi kèm.
+
+Phản hồi chứa dữ liệu khách đều mang `Cache-Control: private, no-store`, để bấm Back
+sau khi đăng xuất không thấy lại hộp thư.
+
+Hàng rào có test: `pnpm test` (13 ca — allowlist chặn mặc định, không khớp tiền tố,
+đổi mật khẩu giết phiên cũ, chặn subdomain).
 
 ## Hợp đồng với backend
 

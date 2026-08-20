@@ -43,11 +43,24 @@ async function sign(payload: string): Promise<string> {
   return b64url(new Uint8Array(sig));
 }
 
-/** Chuỗi cookie: `<hết hạn>.<chữ ký>`. Hạn nằm TRONG phần được ký nên client
- *  không tự nới hạn được. */
+/** Dấu vân tay của mật khẩu hiện hành — 12 ký tự hex đầu của HMAC.
+ *
+ *  Có mặt để ĐỔI MẬT KHẨU LÀ ĐUỔI ĐƯỢC NGƯỜI RA. Bản đầu chỉ ký `<hết hạn>`, nên
+ *  chữ ký chỉ phụ thuộc SESSION_SECRET: đổi APP_PASSWORD xong, cookie đã phát vẫn
+ *  sống trọn 12 giờ. Mà đổi mật khẩu chính là cách duy nhất thu hồi quyền ở mô hình
+ *  mật khẩu dùng chung (nhân viên nghỉ việc) — thu hồi mà không hiệu lực ngay thì
+ *  coi như không thu hồi.
+ *
+ *  Chỉ lưu vân tay chứ không lưu mật khẩu: cookie nằm ở máy khách. */
+async function vanTayMatKhau(): Promise<string> {
+  return (await sign(`pw:${process.env.APP_PASSWORD || ""}`)).slice(0, 12);
+}
+
+/** Chuỗi cookie: `<hết hạn>.<vân tay mật khẩu>.<chữ ký>`. Cả hạn LẪN vân tay nằm
+ *  trong phần được ký nên client không tự nới hạn, cũng không tự vá vân tay. */
 export async function createSession(): Promise<{ value: string; maxAge: number }> {
   const exp = Date.now() + MAX_AGE_SECONDS * 1000;
-  const payload = String(exp);
+  const payload = `${exp}.${await vanTayMatKhau()}`;
   return { value: `${payload}.${await sign(payload)}`, maxAge: MAX_AGE_SECONDS };
 }
 
@@ -64,8 +77,11 @@ export async function verifySession(raw: string | undefined): Promise<boolean> {
   let diff = 0;
   for (let i = 0; i < got.length; i++) diff |= got.charCodeAt(i) ^ want.charCodeAt(i);
   if (diff !== 0) return false;
-  const exp = Number(payload);
-  return Number.isFinite(exp) && exp > Date.now();
+  const [expStr, vanTay] = payload.split(".");
+  const exp = Number(expStr);
+  if (!Number.isFinite(exp) || exp <= Date.now()) return false;
+  // Mật khẩu đã đổi → vân tay lệch → mọi phiên cũ chết ngay lập tức.
+  return vanTay === (await vanTayMatKhau());
 }
 
 export const SESSION_COOKIE = COOKIE;
@@ -78,4 +94,28 @@ export function cookieOptions(maxAge: number) {
     path: "/",
     maxAge,
   };
+}
+
+/**
+ * Chặn CSRF: request GHI phải đến từ chính origin của app.
+ *
+ * `sameSite=lax` chưa đủ. Nó chặn cross-SITE, mà "site" tính theo eTLD+1 — nên một
+ * subdomain khác của chính khách (`blog.khachhang.vn`, thường do WordPress dựng và
+ * hay bị chiếm) vẫn là SAME-site, cookie vẫn được gửi kèm. Kẻ chiếm subdomain đó
+ * gửi form POST sang app là thao tác được dưới danh nghĩa người đang đăng nhập.
+ *
+ * So sánh `Origin` với host thật của request. Thiếu `Origin` (một số client cũ)
+ * thì fallback sang `Referer`; không có cả hai → từ chối, vì trình duyệt hiện đại
+ * LUÔN gửi Origin cho request ghi.
+ */
+export function cungNguonGoc(req: Request): boolean {
+  const host = req.headers.get("host");
+  if (!host) return false;
+  const origin = req.headers.get("origin") || req.headers.get("referer");
+  if (!origin) return false;
+  try {
+    return new URL(origin).host === host;
+  } catch {
+    return false;
+  }
 }

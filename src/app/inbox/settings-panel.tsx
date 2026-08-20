@@ -21,8 +21,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { AGENT_ID, BRAND } from "@/lib/brand";
 import { MOCK } from "@/lib/mock";
 import {
-  AUTO_REPLY_EDITABLE,
-  CHAT_PLATFORMS,
   HOTFIX_MAX_CHARS,
   type AgentDetail,
   type PromptHotfix,
@@ -205,7 +203,7 @@ export function SettingsPanel() {
                 {"Đang đăng nhập bằng mật khẩu chung"}
               </span>
               <span className="block text-[12.5px]" style={{ color: "var(--wa-text-soft)" }}>
-                Đăng xuất rồi vào lại cần email và mật khẩu
+                Đăng xuất rồi vào lại cần mật khẩu truy cập
               </span>
             </span>
             <button

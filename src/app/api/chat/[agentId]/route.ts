@@ -14,7 +14,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { SESSION_COOKIE, verifySession } from "@/lib/session";
+import { SESSION_COOKIE, cungNguonGoc, verifySession } from "@/lib/session";
 import http from "node:http";
 import https from "node:https";
 import { URL } from "node:url";
@@ -30,6 +30,9 @@ export async function POST(
   // thành cửa sau bỏ qua đăng nhập.
   if (!(await verifySession(request.cookies.get(SESSION_COOKIE)?.value))) {
     return new NextResponse("Chưa đăng nhập", { status: 401 });
+  }
+  if (!cungNguonGoc(request)) {
+    return new NextResponse("Nguồn gốc không hợp lệ", { status: 403 });
   }
   const apiKey = process.env.PHENAU_API_KEY || "";
   if (!apiKey) {
@@ -90,7 +93,7 @@ export async function POST(
             status: 200,
             headers: {
               "Content-Type": "text/event-stream",
-              "Cache-Control": "no-cache, no-transform",
+              "Cache-Control": "private, no-store, no-transform",
               Connection: "keep-alive",
               "X-Accel-Buffering": "no",
             },

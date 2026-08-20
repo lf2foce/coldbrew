@@ -7,7 +7,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { SESSION_COOKIE, cookieOptions, createSession } from "@/lib/session";
+import { SESSION_COOKIE, cookieOptions, createSession, cungNguonGoc } from "@/lib/session";
 
 /** Chặn dò mật khẩu. Một mật khẩu dùng chung, không giới hạn số lần thử, đứng
  *  trước một API key — đó là cánh cửa dò được. Đếm theo IP, cửa sổ trượt.
@@ -43,6 +43,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Chưa cấu hình APP_PASSWORD" }, { status: 500 });
   }
 
+  if (!cungNguonGoc(req)) {
+    return NextResponse.json({ error: "Nguồn gốc không hợp lệ" }, { status: 403 });
+  }
+
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
   if (quaNhieuLan(ip)) {
     return NextResponse.json(
@@ -58,6 +62,11 @@ export async function POST(req: NextRequest) {
     await new Promise((r) => setTimeout(r, 400));
     return NextResponse.json({ error: "Mật khẩu không đúng" }, { status: 401 });
   }
+
+  // Vào được thì xoá lịch sử sai của IP. Không xoá thì người gõ nhầm 7 lần, vào
+  // đúng, rồi lỡ tay sai thêm một lần nữa là bị khoá 10 phút — trong khi họ vừa
+  // chứng minh mình biết mật khẩu.
+  HITS.delete(ip);
 
   const { value, maxAge } = await createSession();
   const res = NextResponse.json({ ok: true });

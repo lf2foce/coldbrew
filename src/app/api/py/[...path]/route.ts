@@ -16,52 +16,17 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { SESSION_COOKIE, verifySession } from "@/lib/session";
+import { ALLOWLIST_LEN, khop } from "@/lib/allowlist";
+import { SESSION_COOKIE, cungNguonGoc, verifySession } from "@/lib/session";
 
 const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8000";
-
-/** Mỗi mục: [method, mẫu đường]. `:x` khớp đúng MỘT đoạn, không khớp dấu `/`. */
-const ALLOWLIST: [string, string][] = [
-  // ── Hộp thư ───────────────────────────────────────────────────────────────
-  ["GET",   "/v1/conversations"],
-  ["GET",   "/v1/conversations/search"],
-  ["GET",   "/v1/conversations/:conv"],
-  ["GET",   "/v1/conversations/:conv/messages"],
-  ["GET",   "/v1/conversations/:conv/messages/:msg"],
-  ["GET",   "/v1/conversations/:conv/events"],
-  ["POST",  "/v1/conversations/:conv/reply"],
-  ["POST",  "/v1/conversations/:conv/reply-mode"],
-  ["POST",  "/v1/conversations/:conv/mark-read"],
-  // ── Nháp trợ lý ───────────────────────────────────────────────────────────
-  ["GET",   "/v1/conversations/:conv/drafts"],
-  ["POST",  "/v1/conversations/:conv/drafts/:draft/approve"],
-  ["POST",  "/v1/conversations/:conv/drafts/:draft/dismiss"],
-  ["POST",  "/v1/conversations/:conv/drafts/:draft/edit-and-send"],
-  // ── Yêu cầu khách ─────────────────────────────────────────────────────────
-  ["GET",   "/v1/agents/:agent/tickets"],
-  ["PATCH", "/v1/agents/:agent/tickets/:ticket"],
-  // ── Trợ lý còn yếu ────────────────────────────────────────────────────────
-  ["GET",   "/v1/business/agents/:agent/quality"],
-  // ── Cài đặt: đọc agent + ghi luật vá ──────────────────────────────────────
-  // PUT chứ không PATCH: agents.py chỉ có @router.put. Bản trước gọi PATCH nên
-  // luật vá chưa bao giờ lưu được, mọi lần bấm đều 405.
-  ["GET",   "/v1/agents/:agent"],
-  ["PUT",   "/v1/agents/:agent"],
-];
-
-function khop(method: string, path: string): boolean {
-  const doan = path.split("/");
-  return ALLOWLIST.some(([m, mau]) => {
-    if (m !== method) return false;
-    const mauDoan = mau.split("/");
-    if (mauDoan.length !== doan.length) return false;
-    return mauDoan.every((p, i) => (p.startsWith(":") ? doan[i] !== "" : p === doan[i]));
-  });
-}
 
 async function chuyenTiep(req: NextRequest, path: string[]) {
   if (!(await verifySession(req.cookies.get(SESSION_COOKIE)?.value))) {
     return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+  }
+  if (req.method !== "GET" && !cungNguonGoc(req)) {
+    return NextResponse.json({ error: "Nguồn gốc không hợp lệ" }, { status: 403 });
   }
 
   // Chuẩn hoá rồi mới đối chiếu: `..` và `//` phải bị triệt TRƯỚC khi so allowlist,
@@ -99,6 +64,10 @@ async function chuyenTiep(req: NextRequest, path: string[]) {
   const out = new NextResponse(res.body, { status: res.status });
   const resCt = res.headers.get("Content-Type");
   if (resCt) out.headers.set("Content-Type", resCt);
+  // Mọi phản hồi qua đây đều là dữ liệu khách hàng của khách. `private, no-store`
+  // để trình duyệt lẫn CDN không giữ lại hộp thư sau khi người dùng đăng xuất —
+  // bấm Back sau logout không được phép thấy tin nhắn.
+  out.headers.set("Cache-Control", "private, no-store");
 
   // SSE (/events) đi chung đường này. Comment cũ trong repo bảo rewrite/fetch của
   // Node ĐỆM phản hồi, nhưng đo lại ngày 19/08/2026 bằng backend giả bắn 5 sự kiện
