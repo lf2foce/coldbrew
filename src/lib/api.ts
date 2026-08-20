@@ -1,44 +1,33 @@
 "use client";
 
 /**
- * Gọi backend qua proxy `/api/py/*` KÈM token Clerk.
+ * Gọi backend qua BFF proxy `/api/py/*`. Client KHÔNG mang token nào cả.
  *
- * Vì sao phải gắn `Authorization` chứ không trông vào cookie: proxy của Next là
- * rewrite server→server, và backend xác thực bằng Bearer token chứ không đọc
- * cookie phiên. Bỏ header này là **mọi** request trả 401 — đã dính đúng thế
- * 18/08/2026, log backend đỏ rực toàn 401 trong khi trình duyệt vẫn đang đăng
- * nhập bình thường.
+ * Trước đây mỗi request phải gắn `Authorization: Bearer <token Clerk>` và
+ * `X-Phenau-Tenant-Id`. Giờ cả hai biến mất khỏi trình duyệt: proxy ở server tự
+ * gắn API key, mà key đã khoá sẵn tenant + agent nên cũng không cần khai workspace.
  *
- * `X-Phenau-Tenant-Id` cũng bắt buộc khi tài khoản thuộc nhiều workspace: thiếu
- * nó thì backend bind vào workspace CHÍNH và RLS trả rỗng câm — không lỗi,
- * không cảnh báo, chỉ trống trơn.
+ * Điều đó có nghĩa: **không còn bí mật nào nằm trong bundle tải về máy khách**.
+ * Thứ duy nhất trình duyệt cầm là cookie phiên đã ký — mất nó cũng chỉ mất quyền
+ * vào app, không lộ đường vào backend.
  *
- * (Đi qua proxy nên KHÔNG cần mở CORS ở backend — trình duyệt chỉ nói chuyện
- * với chính origin của app.)
+ * (Đi qua proxy nên KHÔNG cần mở CORS ở backend — trình duyệt chỉ nói chuyện với
+ * chính origin của app.)
  */
-
-import { TENANT_ID } from "./brand";
-
-type Getter = () => Promise<string | null>;
 
 export const API_PREFIX = "/api/py/v1";
 
-/** Header xác thực dùng chung. Tách riêng vì SSE cần tự `fetch` (phải đọc
- *  stream) nhưng vẫn phải mang đúng bộ header — nhân bản logic token ra hai nơi
- *  là kiểu bug sửa một chỗ quên chỗ kia. */
-export async function authHeaders(getToken: Getter): Promise<Record<string, string>> {
-  const h: Record<string, string> = {};
-  const token = await getToken().catch(() => null);
-  if (token) h["Authorization"] = `Bearer ${token}`;
-  if (TENANT_ID) h["X-Phenau-Tenant-Id"] = TENANT_ID;
-  return h;
+/** Giữ lại chữ ký cũ để chỗ gọi không phải sửa: nay không có header xác thực nào
+ *  cần gắn ở client. Cookie phiên trình duyệt tự gửi kèm. */
+export async function authHeaders(): Promise<Record<string, string>> {
+  return {};
 }
 
-export function makeApi(getToken: Getter) {
+export function makeApi() {
   return async function api<T>(path: string, init?: RequestInit): Promise<T> {
     const headers = new Headers(init?.headers);
     headers.set("Accept", "application/json");
-    for (const [k, v] of Object.entries(await authHeaders(getToken))) headers.set(k, v);
+    for (const [k, v] of Object.entries(await authHeaders())) headers.set(k, v);
     if (init?.body && !headers.has("Content-Type")) {
       headers.set("Content-Type", "application/json");
     }
@@ -57,7 +46,7 @@ export function makeApi(getToken: Getter) {
  * thử đứng im 5–10 giây rồi cả đoạn nhảy ra một lần — trong khi backend đã bắn
  * từng mảnh `delta` ngay từ giây đầu. Đọc dần thì chữ chạy như ChatGPT.
  */
-export function makeStreamApi(getToken: Getter) {
+export function makeStreamApi() {
   /** `path` bắt đầu bằng "/api/" thì gọi thẳng (route handler của app);
    *  còn lại thì ghép tiền tố proxy `/api/py/v1`. */
   return async function stream(
@@ -66,7 +55,7 @@ export function makeStreamApi(getToken: Getter) {
     onEvent: (ev: Record<string, unknown>) => void,
   ): Promise<void> {
     const headers = new Headers(init.headers);
-    for (const [k, v] of Object.entries(await authHeaders(getToken))) headers.set(k, v);
+    for (const [k, v] of Object.entries(await authHeaders())) headers.set(k, v);
     if (init.body && !headers.has("Content-Type")) {
       headers.set("Content-Type", "application/json");
     }

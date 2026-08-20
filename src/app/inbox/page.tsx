@@ -13,7 +13,6 @@
  * UI lọc tay.
  */
 
-import { useAuth } from "@clerk/nextjs";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AGENT_ID, BRAND } from "@/lib/brand";
 import { MOCK, MOCK_CONVERSATIONS, MOCK_DRAFTS, MOCK_MESSAGES } from "@/lib/mock";
@@ -66,8 +65,7 @@ function dayLabel(iso: string, now: Date): string {
 type Filter = "all" | "unread";
 
 export default function InboxPage() {
-  const { getToken } = useAuth();
-  const api = useMemo(() => makeApi(getToken), [getToken]);
+  const api = useMemo(() => makeApi(), []);
   const [convs, setConvs] = useState<Conversation[] | null>(MOCK ? MOCK_CONVERSATIONS : null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[] | null>(null);
@@ -220,7 +218,6 @@ export default function InboxPage() {
     conversationId: activeId,
     enabled: !MOCK && tab === "chat",
     api,
-    getToken,
     onMessage: (m) => {
       setMessages((prev) => {
         if (!prev) return [m];

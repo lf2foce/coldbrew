@@ -20,9 +20,10 @@ pnpm dev                       # http://localhost:3005
 | Biến | Bắt buộc | Việc |
 |---|---|---|
 | `BACKEND_URL` | ✅ | Gốc API. **Cố định lúc BUILD** — xem cảnh báo dưới |
-| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | ✅ | Clerk (client) |
-| `CLERK_SECRET_KEY` | ✅ | Clerk (server) |
-| `NEXT_PUBLIC_AGENT_ID` | ✅ | Agent duy nhất app này hiển thị |
+| `PHENAU_API_KEY` | ✅ | Key của workspace khách, đã gắn cứng tenant + agent |
+| `APP_PASSWORD` | ✅ | Mật khẩu vào app, **dùng chung** cả workspace |
+| `SESSION_SECRET` | ✅ | Ký cookie phiên, ≥32 ký tự, mỗi khách một giá trị |
+| `NEXT_PUBLIC_AGENT_ID` | ✅ | Agent app hiển thị (khớp agent trong key) |
 | `NEXT_PUBLIC_BRAND_NAME` | ✅ | Tên hiện trên tab + màn đăng nhập |
 | `NEXT_PUBLIC_BRAND_ACCENT` | | Màu nhấn, mặc định `#1F4470` |
 
@@ -33,61 +34,33 @@ pnpm dev                       # http://localhost:3005
 `NEXT_PUBLIC_*` bị nhúng vào bundle tải về máy khách — **không đặt secret ở đó**.
 `BACKEND_URL` và `CLERK_SECRET_KEY` không có tiền tố đó nên ở lại server.
 
-## Tài khoản cho khách
+## Đăng nhập
 
-Không có màn đăng ký. Tài khoản do bên vận hành tạo tay:
+**Một mật khẩu dùng chung cho cả workspace của khách** (`APP_PASSWORD`), không có
+hệ tài khoản riêng từng người.
 
-Password sống ở **Clerk**, membership sống ở **phenau** — hai hệ khác nhau, và
-phenau không bao giờ giữ password. Thứ tự BẮT BUỘC:
+Vì sao không Clerk: một Clerk production instance chỉ phục vụ **đúng một domain** —
+đo 18/08/2026, origin `app.hdx.vn` → `origin_invalid`, mà subdomain cũng
+→ `subdomain_not_allowed`. App này chạy dưới domain của từng khách nên Clerk chỉ
+dùng được nếu mỗi khách một Clerk app, kéo theo bẫy hai hàng `users` khi cùng một
+email đăng nhập ở hai instance. Chi tiết: runbook 36 bên `phenau_v3`.
 
-1. **Clerk** Dashboard → Users → **Create user** (email + password, không gửi mail mời)
-2. **Cho tài khoản đó đăng nhập một lần** (coldbrew hoặc dashboard chính) — đây là
-   bước hay bị bỏ sót, xem lý do dưới
-3. **phenau** → workspace của khách → Thêm thành viên bằng email, vai `editor`
-4. Đưa email + password cho khách
+Cái giá đã chấp nhận, biết trước chứ không phải sót:
 
-Vì sao bước 2: `add_member_by_email` tra bảng `users` của phenau theo email và
-**ném lỗi `User with this email has not registered yet`** nếu chưa có. Bản ghi đó
-chỉ sinh ra khi (a) webhook Clerk `user.created` chạy, hoặc (b) user đăng nhập lần
-đầu. Ở local webhook không gọi tới được `localhost:8000` → tạo user ở Clerk xong mà
-add member vẫn báo "chưa đăng ký". Đăng nhập một lần là xong.
+| | hệ quả | khi nào phải xử lý |
+|---|---|---|
+| Mật khẩu dùng chung | không thu hồi được theo từng người — nhân viên nghỉ thì đổi mật khẩu cho tất cả | khách >5 người trực |
+| Một danh tính | duyệt nháp / chia ticket / `scope=mine` chung một người | khi cần truy vết ai làm gì |
 
-Hệ quả bước 2: lần đăng nhập đầu **tự cấp cho user một workspace cá nhân trống**
-(`upsert_user_and_tenant`). Nên sau bước 3 user thuộc 2 workspace, và backend mặc
-định bind vào workspace CHÍNH (cái trống) → đây chính là lý do
-`NEXT_PUBLIC_TENANT_ID` bắt buộc, thiếu là hộp thư trống trơn không báo lỗi.
-
-Đường khác — `POST /tenants/me/members/bulk-invite` — nhận cả email chưa có tài
-khoản (ghi `pending_invites` + gửi Clerk Invitation, webhook attach sau). Nhưng
-đường đó để **khách tự đặt password** qua link mời, ngược với mô hình ở đây là
-agency cấp sẵn tài khoản.
-
-⚠ **Password chỉ đăng nhập được nếu instance bật nó làm first factor.** Clerk tách
-hai thứ: *có* password (`password.enabled`, bắt buộc lúc tạo user) và *đăng nhập
-bằng* password (`password.used_for_first_factor`). Bật cái sau ở Dashboard →
-User & authentication → toggle **Password**. Không bật thì màn đăng nhập chỉ hỏi
-email rồi gửi mã OTP, dù user đã có password.
-
-Instance dev (`pk_test`) dùng CHUNG với frontend chính → bật là cả hai đổi theo,
-nhưng chỉ ở dev. **Instance production (`pk_live`) có bộ settings RIÊNG** — deploy
-cho khách xong phải bật lại bên đó, nếu không màn đăng nhập thật vẫn là OTP.
-
-Kiểm trạng thái thật (giao diện Dashboard và API từng nói ngược nhau: `auth_config
-.first_factors` có `password` trong khi `attributes.password.used_for_first_factor`
-là `false` — tin bước đăng nhập thật, đừng tin một trường):
-
-```bash
-PK=$(grep NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY .env.local | cut -d= -f2)
-B=$(echo -n "$PK" | sed 's/^pk_test_//;s/^pk_live_//')
-while [ $(( ${#B} % 4 )) -ne 0 ]; do B="${B}="; done
-curl -s "https://$(echo -n "$B" | base64 -d | tr -d '$')/v1/environment" \
-  | node -pe 'const a=JSON.parse(require("fs").readFileSync(0)).user_settings.attributes; \
-      `password first-factor: ${a.password.used_for_first_factor}\nemail: ${a.email_address.first_factors}`'
-```
+Cookie phiên **được ký HMAC-SHA256** bằng `SESSION_SECRET`, `httpOnly` + `sameSite=lax`,
+hạn 12 giờ nằm trong phần được ký. Kiểu "so mật khẩu xong set `logged_in=1`" là vô
+nghĩa — ai cũng tự đặt cookie đó trong DevTools. Cổng đăng nhập chặn dò mật khẩu:
+8 lần sai / 10 phút theo IP, mỗi lần sai chậm 400ms.
 
 ## Hợp đồng với backend
 
-App chỉ gọi các đường dưới đây, qua proxy `/api/py/*` → `${BACKEND_URL}/api/*`.
+App chỉ gọi các đường dưới đây, qua **BFF proxy** `src/app/api/py/[...path]/route.ts`.
+Danh sách này CHÍNH LÀ allowlist trong file đó — thêm đường mới phải sửa cả hai chỗ.
 Backend đổi hình dạng phản hồi ở bất kỳ dòng nào trong bảng này là app vỡ — đây là
 **bề mặt duy nhất** cần kiểm khi nâng cấp backend.
 
@@ -106,11 +79,11 @@ Backend đổi hình dạng phản hồi ở bất kỳ dòng nào trong bảng 
 | `GET /v1/agents/{id}/tickets` | tab Yêu cầu khách (envelope `{items,total}`) |
 | `PATCH /v1/agents/{id}/tickets/{tid}` | đổi trạng thái ticket |
 | `GET /v1/business/agents/{id}/quality` | tab Trợ lý còn yếu |
-| `POST /v1/agents/{id}/chat` | tab Chat thử (SSE) |
+| `POST /v1/agents/{id}/chat` | tab Chat thử (SSE, qua route riêng) |
 
-Xác thực: **`Authorization: Bearer <token Clerk>`** — backend KHÔNG đọc cookie phiên,
-thiếu header là 401 sạch mọi endpoint. Kèm **`X-Phenau-Tenant-Id`** khi tài khoản
-thuộc nhiều workspace, nếu không RLS trả rỗng câm (không lỗi, chỉ trống trơn).
+Xác thực: **`Authorization: Bearer <PHENAU_API_KEY>`**, do BFF proxy gắn ở server.
+Trình duyệt không cầm key, cũng không khai workspace — key đã gắn cứng tenant + agent.
+Nghĩa là **không còn bí mật nào trong bundle tải về máy khách**.
 
 ## Bốn tab
 
@@ -136,8 +109,11 @@ Cài đặt nằm ở đáy rail.
 Nên **không có nấc "im hẳn" ở mức kênh** — muốn trợ lý không cả soạn nháp thì
 phải đặt riêng cho hội thoại đó. Màn Cài đặt nói thẳng điều này.
 
-Đổi cờ kênh: `POST /integrations/meta/set-auto-reply` — **chỉ Facebook/Instagram**.
-Kênh khác hiện read-only.
+Mức KÊNH **không chỉnh được từ app này** — mục đó đã gỡ khỏi tab Cài đặt. Hai
+endpoint `/integrations/*` thao tác theo tenant và không nhận `agent_id`, nên chốt
+khoá-key-theo-agent của backend không với tới: trong workspace nhiều agent, key của
+agent này sẽ liệt kê được mọi kênh của tenant. Đổi mặc định kênh thì làm ở dashboard
+chính; khách vẫn tắt/bật trợ lý cho từng hội thoại.
 
 ## Giới hạn đã biết
 
@@ -156,16 +132,16 @@ lần khách nối lại Fanpage. Nó cũng gắn theo kênh, nên 5 Fanpage ph�
 
 Trần 2.000 ký tự: đây là chỗ sửa nhanh vài dòng, không phải prompt thứ hai.
 
-⚠ `PATCH /agents/{id}` thay **cả** `agent_config_json` — phải đọc lại rồi ghi đè
+⚠ `PUT /agents/{id}` thay **cả** `agent_config_json` — phải đọc lại rồi ghi đè
 nguyên object, gửi thiếu khoá là xoá mất cấu hình khác (`voucher_context`,
 `strict_grounding`, `rendering`…).
 
 ## SSE phải đi qua route handler, KHÔNG qua rewrite
 
-`next.config.ts` rewrite đi bằng `fetch()` của Node, mà `fetch()` **đệm** phản
-hồi: backend bắn từng mảnh `delta` ngay từ giây đầu nhưng trình duyệt chỉ nhận
-được khi stream đóng → chữ hiện một cục sau 5–10 giây, dù client đã đọc bằng
-`getReader()`.
+Không còn rewrite nào trong `next.config.ts` — mọi đường đi qua BFF proxy.
+(Ghi chú cũ ở đây nói `fetch()` của Node đệm phản hồi; đo lại 19/08/2026 bằng backend
+giả bắn 5 sự kiện cách nhau 700ms thì KHÔNG đệm. Vẫn giữ route riêng cho chat vì nó
+dùng `node:http` và chủ động set header chống đệm.)
 
 Nên chat thử gọi `src/app/api/chat/[agentId]/route.ts` — dùng `node:http` đẩy
 từng chunk, kèm `X-Accel-Buffering: no` để proxy phía trước cũng không đệm lại.
@@ -190,5 +166,7 @@ làm ở tầng backend.
 
 ## Triển khai
 
-Vercel → import repo → set env → deploy. Sau đó Domains → thêm domain của khách.
+Vercel → import repo → set env (**gồm `PHENAU_API_KEY`, `APP_PASSWORD`, `SESSION_SECRET`**) → deploy.
+Sau đó Domains → thêm domain của khách. Không cần cấu hình gì ở Clerk, cũng không
+cần thêm origin nào vào CORS của backend.
 Một khách một Vercel project, cùng repo, khác env.

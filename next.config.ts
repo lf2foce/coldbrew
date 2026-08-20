@@ -1,29 +1,17 @@
 import type { NextConfig } from "next";
 
 /**
- * coldbrew — app hộp thư giao cho KHÁCH của agency, chạy dưới domain của khách.
+ * coldbrew — app hộp thư giao cho KHÁCH của agency, chạy dưới domain của họ.
  *
- * Vì sao là project riêng thay vì route trong `frontend/`: frontend chính mang
- * thương hiệu Phê Nâu (title, sidebar, Clerk full dashboard). Tách project thì
- * không phải đi gỡ thương hiệu từng ngóc ngách, và không sợ sửa nhầm cái đang chạy.
+ * KHÔNG có rewrite ở đây nữa. Bản trước dùng `/api/py/:path*` →
+ * `${BACKEND_URL}/api/:path*`, tức mở TOÀN BỘ 39 router của backend cho bất kỳ ai
+ * qua được cổng đăng nhập, và không chèn được gì vào request. Với mô hình API key
+ * nó hỏng theo hai hướng cùng lúc: hoặc request đi ra không mang key, hoặc phải
+ * nhét key xuống browser — mà key ở browser thì coi như đã lộ.
  *
- * Proxy `/api/py`: browser gọi cùng origin (cookie Clerk đi kèm), Next chuyển
- * tiếp về backend. Nhờ vậy SSE (EventSource KHÔNG set được header) vẫn xác thực
- * được — đúng cơ chế dashboard đang chạy.
+ * Thay bằng BFF proxy `src/app/api/py/[...path]/route.ts`: kiểm cookie phiên,
+ * đối chiếu allowlist 19 đường, rồi mới gắn key ở phía server.
  */
-const nextConfig: NextConfig = {
-  async rewrites() {
-    // ⚠ Giá trị này được CỐ ĐỊNH lúc BUILD, không đọc lại lúc chạy. Đổi env rồi
-    // `start` lại là vô ích — phải build lại / redeploy. Đã dính 18/08/2026:
-    // env đã đúng mà proxy vẫn gọi localhost:8000 vì build trước khi sửa env.
-    const backendUrl = process.env.BACKEND_URL || "http://localhost:8000";
-    return [
-      {
-        source: "/api/py/:path*",
-        destination: `${backendUrl}/api/:path*`,
-      },
-    ];
-  },
-};
+const nextConfig: NextConfig = {};
 
 export default nextConfig;

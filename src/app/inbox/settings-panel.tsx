@@ -17,7 +17,6 @@
  * đừng trộn.
  */
 
-import { useAuth, useClerk, useUser } from "@clerk/nextjs";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AGENT_ID, BRAND } from "@/lib/brand";
 import { MOCK } from "@/lib/mock";
@@ -26,7 +25,6 @@ import {
   CHAT_PLATFORMS,
   HOTFIX_MAX_CHARS,
   type AgentDetail,
-  type Integration,
   type PromptHotfix,
 } from "@/lib/types";
 import { makeApi } from "@/lib/api";
@@ -40,20 +38,9 @@ const PLATFORM_LABEL: Record<string, string> = {
   web: "Website",
 };
 
-const MOCK_INTEGRATIONS: Integration[] = [
-  { id: "i1", agent_id: "x", platform: "facebook", external_app_id: "101618135082013", status: "active", config_json: { runtime: { auto_reply_enabled: true }, meta: { name: "BĐS Demo · Fanpage chính" } } },
-  { id: "i2", agent_id: "x", platform: "facebook", external_app_id: "1064783760058317", status: "active", config_json: { runtime: { auto_reply_enabled: false }, meta: { name: "BĐS Demo · Page dự án" } } },
-  { id: "i3", agent_id: "x", platform: "zalo", external_app_id: "zalo-oa-1", status: "active", config_json: { runtime: {} } },
-];
 
 /** true / vắng mặt = trợ lý tự trả lời (mặc định của backend). */
-function autoReplyOn(i: Integration): boolean {
-  return i.config_json?.runtime?.auto_reply_enabled !== false;
-}
 
-function channelName(i: Integration): string {
-  return i.config_json?.meta?.name?.trim() || `${PLATFORM_LABEL[i.platform] ?? i.platform} · ${i.external_app_id}`;
-}
 
 function Choice({
   on,
@@ -95,14 +82,8 @@ function Choice({
 }
 
 export function SettingsPanel() {
-  const { getToken } = useAuth();
-  const { signOut } = useClerk();
-  const { user } = useUser();
-  const api = useMemo(() => makeApi(getToken), [getToken]);
+  const api = useMemo(() => makeApi(), []);
 
-  const [channels, setChannels] = useState<Integration[] | null>(MOCK ? MOCK_INTEGRATIONS : null);
-  const [chError, setChError] = useState<string | null>(null);
-  const [saving, setSaving] = useState<string | null>(null);
 
   const [hotfix, setHotfix] = useState("");
   const [savedHotfix, setSavedHotfix] = useState("");
@@ -110,77 +91,8 @@ export function SettingsPanel() {
   const [savingHotfix, setSavingHotfix] = useState(false);
   const [hotfixMsg, setHotfixMsg] = useState<string | null>(null);
 
-  const loadChannels = useCallback(async () => {
-    if (MOCK) return;
-    setChError(null);
-    try {
-      const all = await api<Integration[]>("/integrations");
-      setChannels(
-        all.filter(
-          (i) =>
-            CHAT_PLATFORMS.has(i.platform) &&
-            i.status === "active" &&
-            (!AGENT_ID || i.agent_id === AGENT_ID),
-        ),
-      );
-    } catch (e) {
-      setChError(e instanceof Error ? e.message : String(e));
-      setChannels([]);
-    }
-  }, [api]);
-
-  useEffect(() => {
-    void loadChannels();
-  }, [loadChannels]);
-
-  useEffect(() => {
-    if (MOCK || !AGENT_ID) return;
-    void (async () => {
-      try {
-        const a = await api<AgentDetail>(`/agents/${AGENT_ID}`);
-        const raw = (a.agent_config_json ?? {})["prompt_hotfix"];
-        const h: PromptHotfix | null =
-          typeof raw === "string" ? { text: raw } : ((raw as PromptHotfix | undefined) ?? null);
-        setHotfix(h?.text ?? "");
-        setSavedHotfix(h?.text ?? "");
-        setHotfixMeta(h);
-      } catch {
-        /* đọc hỏng thì để trống, không chặn cả màn */
-      }
-    })();
-  }, [api]);
-
-  const setAutoReply = useCallback(
-    async (ch: Integration, enabled: boolean) => {
-      if (autoReplyOn(ch) === enabled) return;
-      setSaving(ch.id);
-      setChError(null);
-      // Cập nhật lạc quan: bấm là thấy chấm nhảy sang.
-      setChannels((prev) =>
-        prev?.map((c) =>
-          c.id === ch.id
-            ? { ...c, config_json: { ...c.config_json, runtime: { ...c.config_json?.runtime, auto_reply_enabled: enabled } } }
-            : c,
-        ) ?? prev,
-      );
-      if (MOCK) {
-        setSaving(null);
-        return;
-      }
-      try {
-        await api("/integrations/meta/set-auto-reply", {
-          method: "POST",
-          body: JSON.stringify({ integration_id: ch.id, enabled }),
-        });
-      } catch (e) {
-        await loadChannels(); // lỗi → đọc lại trạng thái THẬT, đừng đoán
-        setChError(e instanceof Error ? e.message : String(e));
-      } finally {
-        setSaving(null);
-      }
-    },
-    [api, loadChannels],
-  );
+  // Đã gỡ: loadChannels + toggle auto-reply cấp kênh. Xem ghi chú ở phần JSX
+  // bên dưới — hai endpoint integrations không hợp với mô hình API key.
 
   const saveHotfix = useCallback(async () => {
     setSavingHotfix(true);
@@ -202,7 +114,9 @@ export function SettingsPanel() {
       if (text) cfg["prompt_hotfix"] = { text, updated_at: new Date().toISOString() } satisfies PromptHotfix;
       else delete cfg["prompt_hotfix"];
       await api(`/agents/${AGENT_ID}`, {
-        method: "PATCH",
+        // PUT chứ không PATCH: backend chỉ có @router.put cho /agents/{id}. Bản
+        // trước gọi PATCH nên mọi lần bấm Lưu đều 405 — luật vá chưa từng lưu được.
+        method: "PUT",
         body: JSON.stringify({ agent_config_json: cfg }),
       });
       setSavedHotfix(text);
@@ -224,96 +138,14 @@ export function SettingsPanel() {
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6">
-        {/* ── Mặc định theo kênh ── */}
-        <section className="mb-6">
-          <h3 className="mb-1 text-[15px] font-semibold" style={{ color: "var(--wa-text)" }}>
-            Trợ lý làm gì khi có khách mới nhắn
-          </h3>
-          <p className="mb-3 text-[13px]" style={{ color: "var(--wa-text-soft)" }}>
-            Đặt riêng cho từng kênh. Một hội thoại cụ thể vẫn chỉnh riêng được ở tab Hộp thư và
-            sẽ <strong>đè lên</strong> mặc định này.
-          </p>
-
-          {chError && (
-            <div className="mb-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
-              {chError}{" "}
-              <button onClick={() => void loadChannels()} className="underline">
-                Thử lại
-              </button>
-            </div>
-          )}
-          {channels === null && !chError && (
-            <p className="text-[13.5px]" style={{ color: "var(--wa-text-soft)" }}>
-              Đang tải…
-            </p>
-          )}
-          {channels?.length === 0 && (
-            <p
-              className="rounded-lg border px-3 py-2.5 text-[13px]"
-              style={{ borderColor: "var(--wa-border)", background: "var(--wa-panel-head)", color: "var(--wa-text-soft)" }}
-            >
-              Chưa có kênh trò chuyện nào được nối. Sau khi nối Fanpage hoặc Zalo OA, mặc định
-              của từng kênh sẽ hiện ở đây.
-            </p>
-          )}
-
-          <div className="space-y-2">
-            {channels?.map((ch) => {
-              const on = autoReplyOn(ch);
-              const editable = AUTO_REPLY_EDITABLE.has(ch.platform);
-              const busy = saving === ch.id;
-              return (
-                <div key={ch.id} className="rounded-xl border p-3" style={{ borderColor: "var(--wa-border)" }}>
-                  <div className="mb-1.5 flex items-center justify-between gap-2">
-                    <p className="min-w-0 truncate text-[14.5px] font-medium" style={{ color: "var(--wa-text)" }}>
-                      {channelName(ch)}
-                    </p>
-                    <span
-                      className="shrink-0 rounded-full px-2 py-[2px] text-[11.5px] font-medium"
-                      style={on ? { background: "#e7fce3", color: "#0a7a52" } : { background: "#fff4d6", color: "#8a6100" }}
-                    >
-                      {on ? "Tự trả lời" : "Chờ duyệt"}
-                    </span>
-                  </div>
-
-                  <Choice
-                    on={on}
-                    title="Tự động trả lời"
-                    hint="Trợ lý trả lời khách ngay, không cần ai duyệt"
-                    color="#25d366"
-                    disabled={!editable || busy}
-                    onClick={() => void setAutoReply(ch, true)}
-                  />
-                  <Choice
-                    on={!on}
-                    title="Soạn nháp chờ duyệt"
-                    hint="Trợ lý soạn sẵn, nhân viên đọc rồi bấm gửi"
-                    color="#f0c14b"
-                    disabled={!editable || busy}
-                    onClick={() => void setAutoReply(ch, false)}
-                  />
-
-                  {!editable && (
-                    <p className="mt-1 px-2.5 text-[12px]" style={{ color: "var(--wa-text-soft)" }}>
-                      Kênh {PLATFORM_LABEL[ch.platform] ?? ch.platform} chỉ xem được, chưa đổi
-                      tại đây — liên hệ bên vận hành.
-                    </p>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Nói thẳng: không có nấc "tắt hẳn" ở tầng kênh. Bày ra rồi không chạy
-              là mất tin ngay lần đầu khách thử. */}
-          <p
-            className="mt-2 rounded-lg border px-3 py-2 text-[12.5px]"
-            style={{ borderColor: "var(--wa-border)", background: "var(--wa-panel-head)", color: "var(--wa-text-soft)" }}
-          >
-            Muốn trợ lý <strong>im hẳn</strong> (không cả soạn nháp) thì đặt riêng cho từng hội
-            thoại ở tab Hộp thư — mức kênh chỉ có hai nấc trên.
-          </p>
-        </section>
+        {/* Mục "Mặc định theo kênh" đã GỠ khỏi bản giao khách.
+            Hai endpoint nó cần (`GET /integrations`, `POST /integrations/meta/set-auto-reply`)
+            thao tác theo TENANT và không nhận `agent_id`, nên chốt khoá-key-theo-agent
+            của backend không với tới: trong workspace nhiều agent, key của agent này
+            sẽ liệt kê được mọi kênh của tenant và bật/tắt kênh của agent khác.
+            Chúng cũng đòi vai admin, kéo cả API key lên quyền quản trị workspace.
+            Khách vẫn tắt/bật trợ lý cho TỪNG hội thoại ở tab Hộp thư; đổi mặc định
+            cả kênh thì làm ở dashboard chính. Chi tiết: runbook 36. */}
 
         {/* ── Luật vá ── */}
         <section className="mb-6">
@@ -370,14 +202,18 @@ export function SettingsPanel() {
           >
             <span className="min-w-0">
               <span className="block truncate text-[14.5px]" style={{ color: "var(--wa-text)" }}>
-                {user?.primaryEmailAddress?.emailAddress ?? user?.username ?? "Đang đăng nhập"}
+                {"Đang đăng nhập bằng mật khẩu chung"}
               </span>
               <span className="block text-[12.5px]" style={{ color: "var(--wa-text-soft)" }}>
                 Đăng xuất rồi vào lại cần email và mật khẩu
               </span>
             </span>
             <button
-              onClick={() => void signOut({ redirectUrl: "/sign-in" })}
+              onClick={() => {
+                void fetch("/api/logout", { method: "POST" }).then(() => {
+                  window.location.href = "/sign-in";
+                });
+              }}
               className="shrink-0 rounded-full border px-3.5 py-[6px] text-[13.5px] font-medium transition hover:bg-black/[0.03]"
               style={{ borderColor: "var(--wa-border-strong)", color: "#a33a33" }}
             >

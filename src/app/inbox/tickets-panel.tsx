@@ -16,7 +16,6 @@
  * đổi trạng thái việc của khách. Đổi trạng thái bằng nút, có xác nhận thị giác.
  */
 
-import { useAuth } from "@clerk/nextjs";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AGENT_ID } from "@/lib/brand";
 import { MOCK, MOCK_TICKETS } from "@/lib/mock";
@@ -110,8 +109,7 @@ function TicketCard({
 }
 
 export function TicketsPanel({ onOpenConversation }: { onOpenConversation: (id: string) => void }) {
-  const { getToken } = useAuth();
-  const api = useMemo(() => makeApi(getToken), [getToken]);
+  const api = useMemo(() => makeApi(), []);
   const [tickets, setTickets] = useState<Ticket[] | null>(MOCK ? MOCK_TICKETS : null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);

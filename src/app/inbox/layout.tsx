@@ -1,21 +1,17 @@
-import { auth } from "@clerk/nextjs/server";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { SESSION_COOKIE, verifySession } from "@/lib/session";
 
 /**
- * Chặn quyền Ở ĐÂY, không ở proxy.
+ * Chặn quyền Ở ĐÂY — ngay chỗ đọc dữ liệu, không ở proxy.
  *
- * Clerk đã deprecate `createRouteMatcher`: khớp-theo-đường-dẫn dễ lệch với cách
- * Next định tuyến, để lọt tài nguyên tưởng đã khoá. Cách họ khuyến nghị là kiểm
- * ngay tại nơi đọc dữ liệu — layout này bọc mọi trang trong /inbox.
+ * Khớp-theo-đường-dẫn ở tầng proxy dễ lệch với cách Next định tuyến và để lọt tài
+ * nguyên tưởng đã khoá; layout này bọc mọi trang trong /inbox nên không lệch được.
  */
-export default async function InboxLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default async function InboxLayout({ children }: { children: React.ReactNode }) {
   if (process.env.NEXT_PUBLIC_MOCK !== "1") {
-    const { userId } = await auth();
-    if (!userId) redirect("/sign-in");
+    const store = await cookies();
+    if (!(await verifySession(store.get(SESSION_COOKIE)?.value))) redirect("/sign-in");
   }
   return <>{children}</>;
 }

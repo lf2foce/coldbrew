@@ -16,10 +16,6 @@ export const BRAND = {
 
 export const AGENT_ID = process.env.NEXT_PUBLIC_AGENT_ID || "";
 
-/**
- * Workspace chứa agent. BẮT BUỘC khi tài khoản đăng nhập thuộc NHIỀU workspace:
- * backend mặc định bind vào workspace CHÍNH của user, nên gọi agent ở workspace
- * khác sẽ bị RLS trả rỗng — không lỗi, không cảnh báo, chỉ trống trơn.
- * (Đã dính 18/08/2026: tài khoản thuộc 7 workspace, agent ở workspace thứ hai.)
- */
-export const TENANT_ID = process.env.NEXT_PUBLIC_TENANT_ID || "";
+// TENANT_ID đã bỏ: workspace nay lấy TỪ API KEY ở phía server, client không khai
+// nữa. Nhờ vậy cũng hết được cái bẫy cũ — dán nhầm id của DB dev lên production
+// thì hộp thư trống trơn mà không báo lỗi gì.

@@ -1,27 +1,23 @@
-import { clerkMiddleware } from "@clerk/nextjs/server";
 import { NextResponse, type NextRequest } from "next/server";
+import { SESSION_COOKIE, verifySession } from "@/lib/session";
 
 /**
- * Next.js 16 đổi quy ước `middleware.ts` → `proxy.ts` (bản cũ vẫn chạy nhưng đã
- * cảnh báo deprecated). Frontend chính của phenau cũng đã ở `src/proxy.ts`.
+ * Next.js 16 đổi quy ước `middleware.ts` → `proxy.ts`.
  *
- * Ở đây CHỈ gắn ngữ cảnh phiên Clerk. KHÔNG chặn quyền theo đường dẫn:
- * `createRouteMatcher` đã bị Clerk deprecate vì khớp-theo-path dễ lệch với cách
- * Next định tuyến, để lọt tài nguyên tưởng đã khoá. Việc chặn nằm ở
- * `app/inbox/layout.tsx` — ngay chỗ đọc dữ liệu.
+ * Đây là lớp CHUYỂN HƯỚNG cho đẹp mắt, KHÔNG phải lớp bảo vệ: nó chỉ nhìn cookie
+ * rồi đá người chưa đăng nhập về /sign-in, tránh chớp một nhịp giao diện trống.
+ * Chặn thật nằm ở hai chỗ đọc dữ liệu: `app/inbox/layout.tsx` (trang) và BFF
+ * proxy `api/py/[...path]` (dữ liệu). Mất lớp này thì xấu, không hở.
  */
-const clerk = clerkMiddleware();
-
-export default function proxy(req: NextRequest, ev: unknown) {
-  // MOCK: bỏ qua Clerk hoàn toàn. Cần thiết vì chạy local có thể chưa cấu hình
-  // Clerk key — bật auth lúc đó là app chết ngay, không xem được gì.
+export default async function proxy(req: NextRequest) {
   if (process.env.NEXT_PUBLIC_MOCK === "1") return NextResponse.next();
-  // @ts-expect-error — kiểu event của Clerk không export ra ngoài
-  return clerk(req, ev);
+  const ok = await verifySession(req.cookies.get(SESSION_COOKIE)?.value);
+  if (!ok && req.nextUrl.pathname.startsWith("/inbox")) {
+    return NextResponse.redirect(new URL("/sign-in", req.url));
+  }
+  return NextResponse.next();
 }
 
 export const config = {
-  // Bỏ qua static + /api/py (proxy về backend — backend tự xác thực bằng
-  // cookie/headers, chặn ở đây thì SSE đứt).
-  matcher: ["/((?!_next|api/py|.*\\.(?:ico|png|svg|jpg|css|js)).*)"],
+  matcher: ["/((?!_next|api|.*\\.(?:ico|png|svg|jpg|css|js)).*)"],
 };

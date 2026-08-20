@@ -20,7 +20,6 @@
  * visibility `internal` nên `/public/agents/...` trả 404 — không dùng được.
  */
 
-import { useAuth } from "@clerk/nextjs";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AGENT_ID } from "@/lib/brand";
 import { MOCK } from "@/lib/mock";
@@ -34,9 +33,8 @@ function timeOnly(iso: string): string {
 }
 
 export function TestPanel() {
-  const { getToken } = useAuth();
-  const api = useMemo(() => makeApi(getToken), [getToken]);
-  const stream = useMemo(() => makeStreamApi(getToken), [getToken]);
+  const api = useMemo(() => makeApi(), []);
+  const stream = useMemo(() => makeStreamApi(), []);
 
   const [sessions, setSessions] = useState<Conversation[] | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);

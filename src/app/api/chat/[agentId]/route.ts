@@ -14,21 +14,28 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { SESSION_COOKIE, verifySession } from "@/lib/session";
 import http from "node:http";
 import https from "node:https";
 import { URL } from "node:url";
 
 const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8000";
-const TENANT_HEADER = "X-Phenau-Tenant-Id";
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ agentId: string }> },
 ) {
   const { agentId } = await params;
+  // Cổng phiên: route này KHÔNG đi qua BFF proxy nên phải tự kiểm, nếu không nó
+  // thành cửa sau bỏ qua đăng nhập.
+  if (!(await verifySession(request.cookies.get(SESSION_COOKIE)?.value))) {
+    return new NextResponse("Chưa đăng nhập", { status: 401 });
+  }
+  const apiKey = process.env.PHENAU_API_KEY || "";
+  if (!apiKey) {
+    return new NextResponse("Chưa cấu hình PHENAU_API_KEY", { status: 500 });
+  }
   const body = Buffer.from(await request.arrayBuffer());
-  const authorization = request.headers.get("Authorization") || "";
-  const tenantId = request.headers.get(TENANT_HEADER) || "";
   const url = new URL(`/api/v1/agents/${agentId}/chat`, BACKEND_URL);
 
   return await new Promise<NextResponse>((resolve) => {
@@ -41,8 +48,7 @@ export async function POST(
           "Content-Type": request.headers.get("Content-Type") || "application/json",
           "Content-Length": String(body.byteLength),
           Accept: "text/event-stream",
-          Authorization: authorization,
-          ...(tenantId ? { [TENANT_HEADER]: tenantId } : {}),
+          Authorization: `Bearer ${apiKey}`,
         },
       },
       (proxyRes) => {

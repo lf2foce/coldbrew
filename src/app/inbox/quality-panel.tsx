@@ -13,7 +13,6 @@
  * biết sửa gì.
  */
 
-import { useAuth } from "@clerk/nextjs";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AGENT_ID } from "@/lib/brand";
 import { MOCK, MOCK_QUALITY } from "@/lib/mock";
@@ -40,8 +39,7 @@ function Stat({ value, label, tone }: { value: string; label: string; tone?: str
 }
 
 export function QualityPanel({ onOpenConversation }: { onOpenConversation: (id: string) => void }) {
-  const { getToken } = useAuth();
-  const api = useMemo(() => makeApi(getToken), [getToken]);
+  const api = useMemo(() => makeApi(), []);
   const [days, setDays] = useState(30);
   const [data, setData] = useState<AgentQuality | null>(MOCK ? MOCK_QUALITY : null);
   const [error, setError] = useState<string | null>(null);

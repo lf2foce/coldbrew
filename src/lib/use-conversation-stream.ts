@@ -31,14 +31,12 @@ export function useConversationStream({
   conversationId,
   enabled,
   api,
-  getToken,
   onMessage,
   onUserMessage,
 }: {
   conversationId: string | null;
   enabled: boolean;
   api: <T>(path: string, init?: RequestInit) => Promise<T>;
-  getToken: () => Promise<string | null>;
   onMessage: (m: Message) => void;
   onUserMessage?: () => void;
 }) {
@@ -47,12 +45,10 @@ export function useConversationStream({
   const onMessageRef = useRef(onMessage);
   const onUserRef = useRef(onUserMessage);
   const apiRef = useRef(api);
-  const tokenRef = useRef(getToken);
   useEffect(() => {
     onMessageRef.current = onMessage;
     onUserRef.current = onUserMessage;
     apiRef.current = api;
-    tokenRef.current = getToken;
   });
 
   useEffect(() => {
@@ -75,7 +71,7 @@ export function useConversationStream({
         let res: Response;
         try {
           res = await fetch(`${API_PREFIX}/conversations/${conversationId}/events`, {
-            headers: await authHeaders(tokenRef.current),
+            headers: await authHeaders(),
             signal: ac.signal,
           });
         } catch {
