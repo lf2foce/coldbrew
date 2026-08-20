@@ -32,7 +32,20 @@ export function makeApi() {
       headers.set("Content-Type", "application/json");
     }
     const res = await fetch(`${API_PREFIX}${path}`, { ...init, headers });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      // GIỮ LẤY thông điệp của backend. Bản trước ném trần `HTTP 403`, trong khi
+      // backend đã nói thẳng "API key missing scope: inbox:read" — mất câu đó thì
+      // màn hình chỉ còn con số, và người trực phải đi đào DB mới biết vì sao.
+      // Đã tốn đúng một buổi vì chuyện này ngày 20/08/2026.
+      const raw = await res.text().catch(() => "");
+      let chiTiet = raw;
+      try {
+        chiTiet = JSON.parse(raw)?.detail ?? JSON.parse(raw)?.error ?? raw;
+      } catch {
+        /* không phải JSON → dùng nguyên văn */
+      }
+      throw new Error(chiTiet ? `HTTP ${res.status}: ${chiTiet}` : `HTTP ${res.status}`);
+    }
     // 204 hoặc thân rỗng → đừng ép JSON.parse chuỗi rỗng.
     const text = await res.text();
     return (text ? JSON.parse(text) : null) as T;
