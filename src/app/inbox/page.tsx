@@ -62,7 +62,31 @@ function dayLabel(iso: string, now: Date): string {
   return d.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
-type Filter = "all" | "unread";
+type Filter = "all" | "unread" | `kenh:${string}`;
+
+/** Nhãn tiếng Việt cho kênh. Kênh lạ thì hiện nguyên tên thô — thà thấy
+ *  "external_api" còn hơn gộp hết vào "Khác" rồi không biết đang lọc cái gì. */
+const NHAN_KENH: Record<string, string> = {
+  facebook: "Facebook",
+  fb: "Facebook",
+  instagram: "Instagram",
+  zalo: "Zalo",
+  lark: "Lark",
+  web: "Website",
+  web_public: "Web công khai",
+  external_api: "API ngoài",
+};
+
+function nhanKenh(platform: string): string {
+  return NHAN_KENH[platform.trim().toLowerCase()] ?? platform;
+}
+
+/** facebook và fb là cùng một kênh — gộp để không ra hai chip trùng nhau.
+ *  Dashboard chính cũng gộp đúng cặp này (getConversationFilterKey). */
+function goKenh(platform: string): string {
+  const p = platform.trim().toLowerCase();
+  return p === "fb" ? "facebook" : p;
+}
 
 export default function InboxPage() {
   const api = useMemo(() => makeApi(), []);
@@ -72,6 +96,9 @@ export default function InboxPage() {
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [composer, setComposer] = useState("");
   const [query, setQuery] = useState("");
+  // Số đếm theo kênh, lấy từ /conversations/facets — đếm trên TOÀN BỘ hội thoại
+  // chứ không phải trang đang tải, nên chip không nói dối khi khách có nhiều tin.
+  const [kenhFacets, setKenhFacets] = useState<{ platform: string; count: number }[]>([]);
   // Khớp theo NỘI DUNG tin (backend trgm) — tách khỏi lọc theo tên ở client.
   const [hits, setHits] = useState<Map<string, { snippet: string; messageId: string }>>(new Map());
   const [searching, setSearching] = useState(false);
@@ -103,13 +130,46 @@ export default function InboxPage() {
     try {
       const qs = new URLSearchParams({ scope: "all", limit: "50" });
       if (AGENT_ID) qs.set("agent_id", AGENT_ID);
-      // `api()` tự gắn Authorization: Bearer — xem lib/api.ts. Backend KHÔNG đọc
-      // cookie phiên, thiếu header là 401 sạch mọi endpoint.
+      // Lọc kênh ở SERVER, không lọc trên mảng đã tải: chỉ tải 50 hội thoại mới
+      // nhất, nên lọc ở client sẽ ra "kênh này không có gì" trong khi thực tế có
+      // — chỉ là nằm ngoài 50 cái đó.
+      if (filter.startsWith("kenh:")) {
+        const kenh = filter.slice(5);
+        // facebook lưu cả "facebook" lẫn "fb" tuỳ nguồn ghi — hỏi cả hai.
+        for (const p of kenh === "facebook" ? ["facebook", "fb"] : [kenh]) qs.append("platforms", p);
+      }
       setConvs(await api<Conversation[]>(`/conversations?${qs}`));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
+  }, [api, filter]);
+
+  // Số đếm theo kênh: nạp riêng, không đi kèm mỗi lần đổi chip — số này không đổi
+  // theo chip đang chọn.
+  const loadFacets = useCallback(async () => {
+    if (MOCK) return;
+    try {
+      const qs = new URLSearchParams({ scope: "all" });
+      if (AGENT_ID) qs.set("agent_id", AGENT_ID);
+      const f = await api<{ platforms?: { platform: string; count: number }[] }>(
+        `/conversations/facets?${qs}`,
+      );
+      // Gộp facebook + fb thành một dòng rồi mới xếp theo số lượng.
+      const gop = new Map<string, number>();
+      for (const { platform, count } of f.platforms ?? []) {
+        const k = goKenh(platform);
+        gop.set(k, (gop.get(k) ?? 0) + count);
+      }
+      setKenhFacets([...gop].map(([platform, count]) => ({ platform, count })).sort((a, b) => b.count - a.count));
+    } catch {
+      // Không có số đếm thì thôi, đừng làm hỏng cả hộp thư vì một dải chip.
+      setKenhFacets([]);
+    }
   }, [api]);
+
+  useEffect(() => {
+    void loadFacets();
+  }, [loadFacets]);
 
   const openConv = useCallback(async (id: string, targetMessageId?: string) => {
     pendingTargetRef.current = targetMessageId ?? null;
@@ -435,11 +495,17 @@ export default function InboxPage() {
           </div>
 
           {/* Dải filter — đặc trưng bản redesign */}
-          <div className="flex shrink-0 gap-2 px-3 pb-2 pt-1.5">
+          <div className="flex shrink-0 gap-2 overflow-x-auto px-3 pb-2 pt-1.5">
             {(
               [
                 ["all", "Tất cả"],
                 ["unread", "Chưa đọc"],
+                // Chip kênh dựng từ facets, nên khách chỉ thấy kênh mình THẬT SỰ có
+                // — không phải một danh sách cứng đầy kênh chưa bao giờ dùng.
+                ...kenhFacets.map(
+                  ({ platform, count }) =>
+                    [`kenh:${platform}` as Filter, `${nhanKenh(platform)} ${count}`] as [Filter, string],
+                ),
               ] as [Filter, string][]
             ).map(([key, label]) => {
               const on = filter === key;
@@ -447,7 +513,7 @@ export default function InboxPage() {
                 <button
                   key={key}
                   onClick={() => setFilter(key)}
-                  className="rounded-full px-3 py-[5px] text-[13px] transition"
+                  className="shrink-0 whitespace-nowrap rounded-full px-3 py-[5px] text-[13px] transition"
                   style={
                     on
                       ? { background: "#e7fce3", color: "var(--wa-teal)", fontWeight: 500 }

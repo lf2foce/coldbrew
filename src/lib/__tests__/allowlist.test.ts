@@ -10,6 +10,7 @@ import { ALLOWLIST, ALLOWLIST_LEN, khop } from "../allowlist.ts";
 
 test("đường trong danh sách thì mở", () => {
   assert.ok(khop("GET", "/v1/conversations"));
+  assert.ok(khop("GET", "/v1/conversations/facets"));
   assert.ok(khop("GET", "/v1/conversations/abc-123/messages"));
   assert.ok(khop("POST", "/v1/conversations/abc/drafts/d1/edit-and-send"));
   assert.ok(khop("PATCH", "/v1/agents/xyz/tickets/t1"));
@@ -48,6 +49,6 @@ test("đoạn rỗng không được coi là tham số hợp lệ", () => {
 });
 
 test("số đường mở khớp con số ghi trong README", () => {
-  assert.equal(ALLOWLIST_LEN, 18, "đổi allowlist thì phải sửa cả bảng trong README");
+  assert.equal(ALLOWLIST_LEN, 19, "đổi allowlist thì phải sửa cả bảng trong README");
   assert.equal(ALLOWLIST.length, ALLOWLIST_LEN);
 });

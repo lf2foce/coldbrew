@@ -12,6 +12,7 @@ export const ALLOWLIST: [string, string][] = [
   // ── Hộp thư ───────────────────────────────────────────────────────────────
   ["GET",   "/v1/conversations"],
   ["GET",   "/v1/conversations/search"],
+  ["GET",   "/v1/conversations/facets"],
   ["GET",   "/v1/conversations/:conv"],
   ["GET",   "/v1/conversations/:conv/messages"],
   ["GET",   "/v1/conversations/:conv/messages/:msg"],
