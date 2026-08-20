@@ -172,7 +172,7 @@ export function TicketsPanel({ onOpenConversation }: { onOpenConversation: (id: 
   }, [tickets]);
 
   const header = (
-    <header className="flex h-[64px] shrink-0 items-center justify-between px-4 pt-2">
+    <header className="flex h-[60px] shrink-0 items-center justify-between px-4">
       <h2 className="text-[20px] font-bold" style={{ color: "var(--wa-text)" }}>
         Yêu cầu khách
       </h2>

@@ -1,26 +1,19 @@
 "use client";
 
 /**
- * Thanh rail dọc bên trái — WhatsApp bản mới dùng nó thay cho tab dưới đáy.
- *
- * Ba mục cho app này:
- *   Chat  — hộp thư khách
- *   Task  — yêu cầu chăm sóc khách (ticket), giống màn "Công việc" của mobile
- *   Test  — chat thử với trợ lý, không đụng khách thật
- *
- * Mục đang mở có nền bo tròn, đúng cách WhatsApp đánh dấu (không phải gạch chân
- * hay đổi màu icon).
+ * Thanh rail dọc bên trái — WhatsApp macOS Desktop chuẩn.
  */
 
 export type RailTab = "chat" | "task" | "quality" | "test" | "settings";
 
-const ITEMS: { key: RailTab; label: string; icon: React.ReactNode }[] = [
+const TOP_ITEMS: { key: RailTab; label: string; icon: React.ReactNode }[] = [
   {
     key: "chat",
     label: "Hộp thư",
     icon: (
-      <svg viewBox="0 0 24 24" className="h-[22px] w-[22px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M21 11.5a8.4 8.4 0 01-9 8.4 9 9 0 01-3.9-.9L3 20.5l1.6-4.7A8.4 8.4 0 013 11.5a8.4 8.4 0 019-8.4 8.4 8.4 0 019 8.4z" />
+      <svg viewBox="0 0 24 24" className="h-[21px] w-[21px]" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M14 9a2 2 0 0 1-2 2H6l-4 4V4c0-1.1.9-2 2-2h8a2 2 0 0 1 2 2v5z" />
+        <path d="M18 9h2a2 2 0 0 1 2 2v8l-3-3h-5a2 2 0 0 1-2-2v-1" />
       </svg>
     ),
   },
@@ -28,10 +21,9 @@ const ITEMS: { key: RailTab; label: string; icon: React.ReactNode }[] = [
     key: "task",
     label: "Yêu cầu khách",
     icon: (
-      <svg viewBox="0 0 24 24" className="h-[22px] w-[22px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M9 4h6a1 1 0 011 1v1H8V5a1 1 0 011-1z" />
-        <rect x="4" y="6" width="16" height="15" rx="2" />
-        <path d="M8.5 12l2 2 4-4" />
+      <svg viewBox="0 0 24 24" className="h-[21px] w-[21px]" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="4" width="18" height="16" rx="2" />
+        <path d="M7 8h10M7 12h10M7 16h6" />
       </svg>
     ),
   },
@@ -39,17 +31,22 @@ const ITEMS: { key: RailTab; label: string; icon: React.ReactNode }[] = [
     key: "quality",
     label: "Trợ lý còn yếu ở đâu",
     icon: (
-      <svg viewBox="0 0 24 24" className="h-[22px] w-[22px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />
+      <svg viewBox="0 0 24 24" className="h-[21px] w-[21px]" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="4" />
+        <path d="M12 2a10 10 0 0 1 10 10" />
+        <path d="M12 22a10 10 0 0 1-10-10" />
       </svg>
     ),
   },
+];
+
+const BOTTOM_ITEMS: { key: RailTab; label: string; icon: React.ReactNode }[] = [
   {
     key: "test",
     label: "Chat thử với trợ lý",
     icon: (
-      <svg viewBox="0 0 24 24" className="h-[22px] w-[22px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 3l1.9 4.3 4.6.5-3.4 3.1.9 4.6L12 13.3 8 15.5l.9-4.6L5.5 7.8l4.6-.5L12 3z" />
+      <svg viewBox="0 0 24 24" className="h-[21px] w-[21px]" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
       </svg>
     ),
   },
@@ -59,9 +56,9 @@ const SETTINGS: { key: RailTab; label: string; icon: React.ReactNode } = {
   key: "settings",
   label: "Cài đặt",
   icon: (
-    <svg viewBox="0 0 24 24" className="h-[22px] w-[22px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="3.2" />
-      <path d="M19.4 15a1.6 1.6 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.6 1.6 0 00-1.8-.3 1.6 1.6 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.6 1.6 0 00-1-1.5 1.6 1.6 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.6 1.6 0 00.3-1.8 1.6 1.6 0 00-1.5-1H3a2 2 0 110-4h.1a1.6 1.6 0 001.5-1 1.6 1.6 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.6 1.6 0 001.8.3H9a1.6 1.6 0 001-1.5V3a2 2 0 114 0v.1a1.6 1.6 0 001 1.5 1.6 1.6 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.6 1.6 0 00-.3 1.8V9a1.6 1.6 0 001.5 1H21a2 2 0 110 4h-.1a1.6 1.6 0 00-1.5 1z" />
+    <svg viewBox="0 0 24 24" className="h-[21px] w-[21px]" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
     </svg>
   ),
 };
@@ -77,10 +74,13 @@ export function Rail({
 }) {
   return (
     <nav
-      className="wa-rail flex w-[68px] shrink-0 flex-col items-center gap-1 border-r py-3"
-      style={{ borderColor: "var(--wa-border)" }}
+      className="wa-rail flex w-[58px] shrink-0 flex-col items-center gap-1 border-r py-3 select-none"
+      style={{
+        background: "var(--wa-rail)",
+        borderColor: "var(--wa-border)",
+      }}
     >
-      {ITEMS.map((it) => {
+      {TOP_ITEMS.map((it) => {
         const on = tab === it.key;
         const n = badges?.[it.key] ?? 0;
         return (
@@ -90,7 +90,7 @@ export function Rail({
             title={it.label}
             aria-label={it.label}
             aria-current={on ? "page" : undefined}
-            className="relative flex h-[46px] w-[46px] items-center justify-center rounded-xl transition"
+            className="relative flex h-[40px] w-[40px] items-center justify-center rounded-[10px] transition hover:bg-[var(--wa-rail-hover)]"
             style={{
               background: on ? "var(--wa-rail-active)" : "transparent",
               color: on ? "var(--wa-text)" : "#54656f",
@@ -99,7 +99,7 @@ export function Rail({
             {it.icon}
             {n > 0 && (
               <span
-                className="absolute right-[6px] top-[5px] flex h-[17px] min-w-[17px] items-center justify-center rounded-full px-1 text-[10.5px] font-semibold text-white"
+                className="absolute -right-1 -top-1 flex h-[16px] min-w-[16px] items-center justify-center rounded-full px-1 text-[10px] font-bold text-white shadow-xs"
                 style={{ background: "var(--wa-unread)" }}
               >
                 {n}
@@ -109,15 +109,37 @@ export function Rail({
         );
       })}
 
-      {/* Cài đặt tách xuống đáy — đúng nếp WhatsApp, và nó là mục ÍT bấm nhất
-          nên không nên chiếm chỗ trong luồng làm việc hằng ngày. */}
+      {/* Đường phân cách mảnh giữa hai cụm icon chuẩn WhatsApp */}
+      <div className="my-1.5 h-[1px] w-7 bg-[#dedede]" />
+
+      {BOTTOM_ITEMS.map((it) => {
+        const on = tab === it.key;
+        return (
+          <button
+            key={it.key}
+            onClick={() => onPick(it.key)}
+            title={it.label}
+            aria-label={it.label}
+            aria-current={on ? "page" : undefined}
+            className="relative flex h-[40px] w-[40px] items-center justify-center rounded-[10px] transition hover:bg-[var(--wa-rail-hover)]"
+            style={{
+              background: on ? "var(--wa-rail-active)" : "transparent",
+              color: on ? "var(--wa-text)" : "#54656f",
+            }}
+          >
+            {it.icon}
+          </button>
+        );
+      })}
+
+      {/* Cài đặt tách xuống đáy */}
       <div className="mt-auto">
         <button
           onClick={() => onPick(SETTINGS.key)}
           title={SETTINGS.label}
           aria-label={SETTINGS.label}
           aria-current={tab === SETTINGS.key ? "page" : undefined}
-          className="flex h-[46px] w-[46px] items-center justify-center rounded-xl transition"
+          className="flex h-[40px] w-[40px] items-center justify-center rounded-[10px] transition hover:bg-[var(--wa-rail-hover)]"
           style={{
             background: tab === SETTINGS.key ? "var(--wa-rail-active)" : "transparent",
             color: tab === SETTINGS.key ? "var(--wa-text)" : "#54656f",

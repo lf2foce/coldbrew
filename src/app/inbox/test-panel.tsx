@@ -25,6 +25,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AGENT_ID } from "@/lib/brand";
 import { MOCK } from "@/lib/mock";
 import { Composer } from "@/components/composer";
+import { Avatar, DotsIcon, IconBtn } from "@/components/ui";
 import { makeApi, makeStreamApi } from "@/lib/api";
 import type { Conversation, Message } from "@/lib/types";
 
@@ -157,34 +158,33 @@ export function TestPanel() {
     <div className="flex h-full min-w-0 flex-1">
       {/* ── Danh sách phiên ── */}
       <aside
-        className="hidden w-[280px] shrink-0 flex-col border-r bg-[var(--wa-panel)] lg:flex"
-        style={{ borderColor: "var(--wa-border-strong)" }}
+        className="hidden w-[320px] shrink-0 flex-col border-r bg-[var(--wa-panel)] md:flex lg:w-[360px]"
+        style={{ borderColor: "var(--wa-border)" }}
       >
         <header className="flex h-[60px] shrink-0 items-center justify-between px-4">
-          <h3 className="text-[15px] font-semibold" style={{ color: "var(--wa-text)" }}>
+          <h2 className="text-[20px] font-bold" style={{ color: "var(--wa-text)" }}>
             Phiên thử
-          </h3>
-          <button
-            onClick={newSession}
-            title="Phiên mới"
-            aria-label="Phiên mới"
-            className="flex h-8 w-8 items-center justify-center rounded-full transition hover:bg-black/5"
-            style={{ color: "#54656f" }}
-          >
-            <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round">
-              <path d="M12 5v14M5 12h14" />
-            </svg>
-          </button>
+          </h2>
+          <div className="flex items-center gap-1">
+            <IconBtn label="Menu">
+              <DotsIcon />
+            </IconBtn>
+            <IconBtn label="Phiên mới" onClick={newSession}>
+              <svg viewBox="0 0 24 24" className="h-[20px] w-[20px]" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+            </IconBtn>
+          </div>
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto">
           {sessions === null && (
-            <p className="p-3 text-[13px]" style={{ color: "var(--wa-text-soft)" }}>
+            <p className="p-4 text-[13.5px]" style={{ color: "var(--wa-text-soft)" }}>
               Đang tải…
             </p>
           )}
           {sessions?.length === 0 && (
-            <p className="p-3 text-[13px]" style={{ color: "var(--wa-text-soft)" }}>
+            <p className="p-4 text-[13.5px]" style={{ color: "var(--wa-text-soft)" }}>
               Chưa có phiên nào. Hỏi một câu là tạo phiên mới.
             </p>
           )}
@@ -194,18 +194,34 @@ export function TestPanel() {
               <button
                 key={c.id}
                 onClick={() => void openSession(c.id)}
-                className="w-full border-b px-3 py-2.5 text-left transition"
+                className="flex w-full items-center gap-3 px-3 py-[10px] text-left transition border-b"
                 style={{
                   borderColor: "var(--wa-border)",
-                  background: on ? "var(--wa-panel-head)" : undefined,
+                  background: on ? "var(--wa-panel-active)" : undefined,
+                }}
+                onMouseEnter={(e) => {
+                  if (!on) e.currentTarget.style.background = "var(--wa-panel-hover)";
+                }}
+                onMouseLeave={(e) => {
+                  if (!on) e.currentTarget.style.background = "";
                 }}
               >
-                <p className="truncate text-[14px]" style={{ color: "var(--wa-text)" }}>
-                  {c.title || "Phiên không tên"}
-                </p>
-                <p className="text-[12px]" style={{ color: "var(--wa-text-soft)" }}>
-                  {c.message_count ?? 0} tin · {timeOnly(c.updated_at)}
-                </p>
+                <Avatar size={48} name={c.title || "Phiên thử"} id={c.id} variant="test" />
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-baseline justify-between gap-2">
+                    <span className="truncate text-[15px] font-medium" style={{ color: "var(--wa-text)" }}>
+                      {c.title || "Phiên không tên"}
+                    </span>
+                    <span className="shrink-0 text-[12px]" style={{ color: "var(--wa-text-soft)" }}>
+                      {timeOnly(c.updated_at)}
+                    </span>
+                  </span>
+                  <span className="mt-[2px] flex items-center gap-1">
+                    <span className="truncate text-[13.5px]" style={{ color: "var(--wa-text-soft)" }}>
+                      {c.message_count ?? 0} tin nhắn
+                    </span>
+                  </span>
+                </span>
               </button>
             );
           })}
@@ -218,16 +234,9 @@ export function TestPanel() {
           className="flex h-[60px] shrink-0 items-center gap-3 px-4"
           style={{ background: "var(--wa-chrome)" }}
         >
-          <span
-            className="flex h-10 w-10 items-center justify-center rounded-full text-white"
-            style={{ background: "var(--wa-teal)" }}
-          >
-            <svg viewBox="0 0 24 24" className="h-[20px] w-[20px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round">
-              <path d="M12 3l1.9 4.3 4.6.5-3.4 3.1.9 4.6L12 13.3 8 15.5l.9-4.6L5.5 7.8l4.6-.5L12 3z" />
-            </svg>
-          </span>
+          <Avatar size={40} name="Trợ lý" variant="bot" />
           <span className="min-w-0 flex-1">
-            <span className="block text-[16px]" style={{ color: "var(--wa-text)" }}>
+            <span className="block text-[16px] font-medium" style={{ color: "var(--wa-text)" }}>
               Chat thử với trợ lý
             </span>
             <span className="block text-[13px]" style={{ color: "var(--wa-text-soft)" }}>
@@ -236,7 +245,7 @@ export function TestPanel() {
           </span>
           <button
             onClick={newSession}
-            className="rounded-full px-3 py-[5px] text-[13px] font-medium lg:hidden"
+            className="rounded-full px-3 py-[5px] text-[13px] font-medium md:hidden"
             style={{ background: "var(--wa-panel)", color: "var(--wa-text)" }}
           >
             Phiên mới

@@ -1,28 +1,27 @@
 @import "tailwindcss";
 
 /* ─────────────────────────────────────────────────────────────────────────
-   Hệ màu WhatsApp Desktop (light) — đối chiếu ảnh chụp thật 18/08/2026.
-   Ba chỗ bản trước sai: rail quá ấm, nền khung trống dùng nhầm màu panel-head,
-   và nút mic/gửi phải LUÔN là vòng tròn xanh (không chỉ khi có chữ).
+   Hệ màu WhatsApp Desktop (light) — đối chiếu ảnh chụp thật WhatsApp macOS.
    ───────────────────────────────────────────────────────────────────────── */
 :root {
   --wa-teal: #008069;        /* nhấn chính: nút, tiêu đề */
-  --wa-green: #25d366;       /* nút mic/gửi — vòng tròn đặc */
+  --wa-green: #25d366;       /* nút mic/gửi, badge chưa đọc */
   --wa-tick: #53bdeb;        /* tích xanh "đã xem" */
   --wa-panel: #ffffff;       /* nền panel, bong bóng khách */
-  --wa-panel-head: #f0f2f5;  /* ô tìm kiếm, dòng đang chọn, nền khung trống */
-  --wa-rail: #f6f4f1;        /* thanh rail dọc ngoài cùng */
-  --wa-rail-active: #e9e6e2; /* ô bo của mục rail đang mở */
-  --wa-chrome: #f0f2f5;      /* thanh đầu khung chat + ô soạn — XÁM nhạt */
-  --wa-composer: #f0f2f5;    /* nền thanh soạn tin */
-  --wa-panel-hover: #f5f6f6;
+  --wa-panel-head: #f6f6f6;  /* ô tìm kiếm, nền phụ */
+  --wa-rail: #f6f6f6;        /* thanh rail dọc ngoài cùng — chuẩn sáng WhatsApp macOS (#f6f6f6) */
+  --wa-rail-active: #dedede; /* ô bo của mục rail đang mở — xám rõ (#dedede) */
+  --wa-rail-hover: #ececec;  /* hover mục rail */
+  --wa-chrome: #f6f6f6;      /* thanh đầu khung chat + ô soạn */
+  --wa-composer: #f6f6f6;    /* nền thanh soạn tin */
+  --wa-panel-hover: #f7f7f7;
   --wa-panel-active: #f0f2f5;
-  --wa-border: #e9edef;
-  --wa-border-strong: #d1d7db;
+  --wa-border: #e9e9e9;
+  --wa-border-strong: #d1d5db;
   --wa-text: #111b21;
   --wa-text-soft: #667781;   /* giờ, mô tả phụ */
   --wa-out: #d9fdd3;         /* bong bóng mình gửi */
-  --wa-chat-bg: #f5f1ea;     /* nâu SIÊU NHẠT — chỉ nền chat mới ấm, chrome thì xám */
+  --wa-chat-bg: #efeae2;     /* nền chat doodle WhatsApp chuẩn (#efeae2) */
   --wa-unread: #25d366;
 }
 

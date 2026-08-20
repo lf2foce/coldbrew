@@ -393,21 +393,21 @@ export default function InboxPage() {
         {/* ══ Sidebar: chỉ ở tab Chat. Task và Test tự chiếm cả khung phải ══ */}
         <aside
           className={`${tab !== "chat" ? "hidden" : activeId ? "hidden md:flex" : "flex"} w-full shrink-0 flex-col border-r bg-[var(--wa-panel)] md:w-[380px] lg:w-[420px]`}
-          style={{ borderColor: "var(--wa-border-strong)" }}
+          style={{ borderColor: "var(--wa-border)" }}
         >
-          <header className="flex h-[64px] shrink-0 items-center justify-between px-4 pt-2">
+          <header className="flex h-[60px] shrink-0 items-center justify-between px-4">
             <h1 className="truncate text-[20px] font-bold" style={{ color: "var(--wa-text)" }}>
               {BRAND.name}
             </h1>
-            <div className="flex items-center">
+            <div className="flex items-center gap-1">
+              <IconBtn label="Menu">
+                <DotsIcon />
+              </IconBtn>
               <IconBtn label="Soạn tin mới">
-                <svg viewBox="0 0 24 24" className="h-[22px] w-[22px]" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                <svg viewBox="0 0 24 24" className="h-[20px] w-[20px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M12 20h9" />
                   <path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
                 </svg>
-              </IconBtn>
-              <IconBtn label="Menu">
-                <DotsIcon />
               </IconBtn>
             </div>
           </header>
@@ -500,7 +500,7 @@ export default function InboxPage() {
                     if (!on) e.currentTarget.style.background = "";
                   }}
                 >
-                  <Avatar size={48} />
+                  <Avatar size={48} name={name} id={c.id} />
                   <span className="min-w-0 flex-1">
                     <span className="flex items-baseline justify-between gap-2">
                       <span className="truncate text-[16px]" style={{ color: "var(--wa-text)" }}>
@@ -602,7 +602,7 @@ export default function InboxPage() {
                 >
                   ←
                 </button>
-                <Avatar size={40} />
+                <Avatar size={40} name={active.title || "Khách"} id={active.id} />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[16px]" style={{ color: "var(--wa-text)" }}>
                     {active.title || "Khách chưa có tên"}
