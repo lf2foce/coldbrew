@@ -633,14 +633,20 @@ export default function InboxPage() {
                   <Avatar size={48} name={name} id={c.id} />
                   <span className="min-w-0 flex-1">
                     <span className="flex items-baseline justify-between gap-2">
-                      <span className="truncate text-[16px]" style={{ color: "var(--wa-text)" }}>
+                      {/* Chưa đọc thì đậm CẢ TÊN, không chỉ dòng xem trước. Nhảy hẳn
+                          400 → 600 (bỏ qua 500): cách nhau một nấc thì liếc qua danh
+                          sách dài không thấy khác gì, mà đó đúng là lúc cần thấy. */}
+                      <span
+                        className="truncate text-[16px]"
+                        style={{ color: "var(--wa-text)", fontWeight: unread > 0 ? 600 : 400 }}
+                      >
                         <Highlight text={name} term={query} />
                       </span>
                       <span
                         className="shrink-0 text-[12px]"
                         style={{
                           color: unread > 0 ? "var(--wa-unread)" : "var(--wa-text-soft)",
-                          fontWeight: unread > 0 ? 500 : 400,
+                          fontWeight: unread > 0 ? 600 : 400,
                         }}
                       >
                         {now ? listStamp(c.updated_at, now) : ""}
@@ -652,7 +658,7 @@ export default function InboxPage() {
                         className="truncate text-[14px]"
                         style={{
                           color: unread > 0 ? "var(--wa-text)" : "var(--wa-text-soft)",
-                          fontWeight: unread > 0 ? 500 : 400,
+                          fontWeight: unread > 0 ? 600 : 400,
                         }}
                       >
                         {/* Đang tìm và cuộc này khớp NỘI DUNG → hiện đoạn trích

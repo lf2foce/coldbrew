@@ -167,14 +167,6 @@ export function QualityPanel({ onOpenConversation }: { onOpenConversation: (id: 
         )}
       </div>
 
-      {/* Lọc nguồn thì sự kiện KHÔNG gắn hội thoại nào sẽ rơi ra ngoài (backend suy
-          nguồn qua hội thoại). Nói ra để người đọc không hoang mang khi tổng của các
-          nguồn nhỏ hơn "Tất cả nguồn". */}
-      {nguon && (
-        <p className="shrink-0 px-4 pb-2 text-[12px]" style={{ color: "var(--wa-text-soft)" }}>
-          Chỉ tính lượt đến từ {nhanNguon(nguon)}.
-        </p>
-      )}
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
         {error && (
