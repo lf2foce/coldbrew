@@ -13,11 +13,12 @@
  * UI lọc tay.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AGENT_ID, BRAND } from "@/lib/brand";
 import { MOCK, MOCK_CONVERSATIONS, MOCK_DRAFTS, MOCK_MESSAGES } from "@/lib/mock";
 import type { Conversation, Draft, Message, ReplyMode, SearchHit } from "@/lib/types";
 import { Highlight } from "@/components/highlight";
+import { MessageContent } from "@/components/message-content";
 import { Avatar, DotsIcon, IconBtn, Ticks } from "@/components/ui";
 import { ReplyModeChip, ReplyModeSheet } from "@/components/reply-mode-sheet";
 import { Rail, type RailTab } from "@/components/rail";
@@ -116,6 +117,7 @@ export default function InboxPage() {
   // Tin cần cuộn tới + tô sau khi mở hội thoại từ kết quả tìm kiếm.
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const pendingTargetRef = useRef<string | null>(null);
+  const prevConvRef = useRef<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const convsRef = useRef<Conversation[] | null>(convs);
   useEffect(() => {
@@ -195,7 +197,9 @@ export default function InboxPage() {
     void loadConvs();
   }, [loadConvs]);
 
-  useEffect(() => {
+  // useLayoutEffect chứ không useEffect: gán scrollTop sau khi trình duyệt đã vẽ
+  // thì người dùng kịp thấy một khung hình ở giữa hội thoại rồi mới giật xuống đáy.
+  useLayoutEffect(() => {
     const target = pendingTargetRef.current;
     if (target) {
       // Chờ DOM dựng xong rồi mới tìm phần tử. Tin cũ hơn cửa sổ đã tải thì
@@ -213,10 +217,22 @@ export default function InboxPage() {
         window.clearTimeout(t2);
       };
     }
-    // Không nhắm tin nào → bám đáy như bình thường. Bám đáy trong lúc đang chờ
-    // cuộn tới tin cũ sẽ cuốn mất đúng cái vừa tô.
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, drafts]);
+    // Không nhắm tin nào → bám đáy. Bám đáy trong lúc đang chờ cuộn tới tin cũ sẽ
+    // cuốn mất đúng cái vừa tô, nên nhánh này phải nằm sau `if (target)`.
+    const vuaDoiHoiThoai = prevConvRef.current !== activeId;
+    prevConvRef.current = activeId;
+    if (vuaDoiHoiThoai) {
+      // MỞ hội thoại: nhảy thẳng, KHÔNG `behavior: "smooth"`. Cuộn mượt ở đây bắt
+      // người ta ngồi xem màn hình chạy từ tin đầu xuống tin cuối mỗi lần bấm — mà
+      // cái họ muốn xem là tin mới nhất, ngay lập tức. Dashboard chính cũng gán
+      // scrollTop thẳng.
+      const el = scrollRef.current;
+      if (el) el.scrollTop = el.scrollHeight;
+    } else {
+      // Tin mới về trong hội thoại ĐANG mở → cuộn mượt, để mắt bắt kịp cái vừa tới.
+      endRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages, drafts, activeId]);
 
   // Tìm theo NỘI DUNG tin: debounce 300ms rồi hỏi backend. Dưới 2 ký tự thì bỏ
   // qua — gõ một chữ là quét cả kho, tốn mà chẳng lọc được gì.
@@ -734,12 +750,12 @@ export default function InboxPage() {
                               Nhân viên
                             </p>
                           )}
-                          <p
-                            className="whitespace-pre-wrap text-[14.2px] leading-[19px]"
+                          <div
+                            className="text-[14.2px] leading-[19px]"
                             style={{ color: "var(--wa-text)" }}
                           >
-                            {m.content}
-                          </p>
+                            <MessageContent content={m.content} />
+                          </div>
                           <span
                             className="float-right ml-2 mt-[3px] flex items-center text-[11px] leading-none"
                             style={{ color: "var(--wa-text-soft)" }}
@@ -764,9 +780,9 @@ export default function InboxPage() {
                       <p className="mb-1 text-[12px] font-medium" style={{ color: "#8a6100" }}>
                         Trợ lý soạn — chưa gửi
                       </p>
-                      <p className="whitespace-pre-wrap text-[14.2px] leading-[19px]" style={{ color: "var(--wa-text)" }}>
-                        {d.edited_content?.trim() || d.draft_content}
-                      </p>
+                      <div className="text-[14.2px] leading-[19px]" style={{ color: "var(--wa-text)" }}>
+                        <MessageContent content={d.edited_content?.trim() || d.draft_content} />
+                      </div>
                       <div className="mt-2 flex gap-2">
                         <button
                           onClick={() => void approveDraft(d)}
