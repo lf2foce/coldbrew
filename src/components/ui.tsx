@@ -23,6 +23,21 @@ function hashString(str: string): number {
   return Math.abs(hash);
 }
 
+/** Chữ cái đầu để làm avatar. Lấy chữ cái ĐẦU CỦA TỪ CUỐI cho tên người Việt —
+ *  "Lê Duy Hưng" ra "H" chứ không phải "L", vì người Việt gọi nhau bằng tên chứ
+ *  không bằng họ, mà họ thì trùng nhau rất nhiều (Nguyễn, Trần…).
+ *  Bỏ qua ký tự không phải chữ: tên kiểu "…" hay emoji thì mới rơi về icon. */
+function chuDauTen(name?: string): string | null {
+  const tu = (name || "")
+    .trim()
+    .split(/\s+/)
+    .filter((t) => /\p{L}/u.test(t));
+  if (tu.length === 0) return null;
+  const cuoi = tu[tu.length - 1];
+  const ky_tu = [...cuoi].find((c) => /\p{L}/u.test(c));
+  return ky_tu ? ky_tu.toLocaleUpperCase("vi-VN") : null;
+}
+
 export function Avatar({
   size = 48,
   name,
@@ -58,7 +73,11 @@ export function Avatar({
           strokeLinecap="round"
           strokeLinejoin="round"
         >
-          <path d="M12 3l1.9 4.3 4.6.5-3.4 3.1.9 4.6L12 13.3 8 15.5l.9-4.6L5.5 7.8l4.6-.5L12 3z" />
+          {/* Bình thí nghiệm, khớp với icon tab "Chat thử" ở rail. Ngôi sao cũ đọc ra
+              "yêu thích", không ai hiểu là phiên thử. */}
+          <path d="M9 3h6" />
+          <path d="M10 3v6.5L4.8 18a2 2 0 0 0 1.7 3h11a2 2 0 0 0 1.7-3L14 9.5V3" />
+          <path d="M7.2 14h9.6" />
         </svg>
       ) : variant === "group" ? (
         <svg
@@ -68,6 +87,19 @@ export function Avatar({
         >
           <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 3s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" />
         </svg>
+      ) : chuDauTen(name) ? (
+        // Chữ cái thay hình người: mọi hội thoại cùng một hình bóng thì mắt không
+        // bám được vào đâu, phải đọc từng dòng tên mới phân biệt nổi.
+        <span
+          style={{
+            fontSize: size * 0.42,
+            fontWeight: 600,
+            lineHeight: 1,
+            letterSpacing: "-0.01em",
+          }}
+        >
+          {chuDauTen(name)}
+        </span>
       ) : (
         <svg
           viewBox="0 0 24 24"

@@ -44,9 +44,13 @@ const BOTTOM_ITEMS: { key: RailTab; label: string; icon: React.ReactNode }[] = [
   {
     key: "test",
     label: "Chat thử với trợ lý",
+    // Ngôi sao nói "yêu thích / đã ghim", không nói "chỗ thử nghiệm" — sai nghĩa hẳn.
+    // Bình thí nghiệm thì ai nhìn cũng hiểu là chỗ làm thử, không đụng khách thật.
     icon: (
       <svg viewBox="0 0 24 24" className="h-[21px] w-[21px]" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+        <path d="M9 3h6" />
+        <path d="M10 3v6.5L4.8 18a2 2 0 0 0 1.7 3h11a2 2 0 0 0 1.7-3L14 9.5V3" />
+        <path d="M7.2 14h9.6" />
       </svg>
     ),
   },
