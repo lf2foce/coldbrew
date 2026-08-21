@@ -180,7 +180,11 @@ export function SettingsPanel() {
             Đi qua /agents/{id}/channels chứ KHÔNG phải /integrations/*: đường cũ
             thao tác theo tenant nên app khách sẽ thấy và chỉnh được kênh của agent
             khác trong cùng workspace. Chi tiết: runbook 36. */}
-        {(kenh?.length ?? 0) > 0 && (
+        {/* Điều kiện hiện mục: có kênh HOẶC có lỗi. Bản trước chỉ xét `kenh.length > 0`,
+            nên khi key thiếu scope (403) thì kenh rỗng → cả thông báo lỗi lẫn nút "Thử
+            lại" biến mất theo, người dùng chỉ thấy mục cài đặt tự dưng không còn. Lỗi
+            im lặng kiểu đó tốn hàng giờ mới lần ra. */}
+        {((kenh?.length ?? 0) > 0 || kenhLoi) && (
           <section className="mb-6">
             <h3 className="mb-1 text-[15px] font-semibold" style={{ color: "var(--wa-text)" }}>
               Trợ lý làm gì khi có khách mới nhắn
@@ -196,6 +200,12 @@ export function SettingsPanel() {
                 <button onClick={() => void loadKenh()} className="underline">
                   Thử lại
                 </button>
+                {kenhLoi.includes("403") && (
+                  <p className="mt-1 text-[12.5px]">
+                    Khoá API thiếu quyền kênh — tạo lại khoá ở dashboard với nhóm quyền
+                    &quot;App hộp thư&quot;.
+                  </p>
+                )}
               </div>
             )}
 
