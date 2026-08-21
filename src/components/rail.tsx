@@ -1,15 +1,31 @@
 "use client";
 
 /**
- * Thanh rail dọc bên trái — WhatsApp macOS Desktop chuẩn.
+ * Thanh điều hướng chính. ĐỔI CHỖ theo bề ngang màn hình:
+ *
+ *  - Từ `md` trở lên: cột dọc bên trái 58px, đúng WhatsApp macOS Desktop.
+ *  - Dưới `md`: hàng ngang dưới đáy, như mọi app điện thoại.
+ *
+ * Vì sao phải đổi chứ không co lại: trên điện thoại, cột dọc bên trái ăn mất 58px
+ * của chiều NGANG — thứ đang thiếu nhất — trong khi ngón cái lại không với tới nổi
+ * góc trên. Đáy màn hình vừa rẻ về không gian vừa đúng tầm tay.
+ *
+ * Ở chế độ dọc thì icon đứng một mình, hiểu được nhờ tooltip khi rê chuột. Điện thoại
+ * KHÔNG có rê chuột, nên chế độ ngang phải kèm chữ.
+ *
+ * Là flex sibling chứ KHÔNG `position: fixed`: thanh cố định sẽ đè lên ô soạn tin ở
+ * đáy, và trên iOS còn chồng vào vạch home.
  */
 
 export type RailTab = "chat" | "task" | "quality" | "test" | "settings";
 
-const TOP_ITEMS: { key: RailTab; label: string; icon: React.ReactNode }[] = [
+type Muc = { key: RailTab; label: string; nhan: string; icon: React.ReactNode };
+
+const TOP_ITEMS: Muc[] = [
   {
     key: "chat",
     label: "Hộp thư",
+    nhan: "Hộp thư",
     icon: (
       <svg viewBox="0 0 24 24" className="h-[21px] w-[21px]" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
         <path d="M14 9a2 2 0 0 1-2 2H6l-4 4V4c0-1.1.9-2 2-2h8a2 2 0 0 1 2 2v5z" />
@@ -20,6 +36,7 @@ const TOP_ITEMS: { key: RailTab; label: string; icon: React.ReactNode }[] = [
   {
     key: "task",
     label: "Yêu cầu khách",
+    nhan: "Yêu cầu",
     icon: (
       <svg viewBox="0 0 24 24" className="h-[21px] w-[21px]" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
         <rect x="3" y="4" width="18" height="16" rx="2" />
@@ -30,6 +47,7 @@ const TOP_ITEMS: { key: RailTab; label: string; icon: React.ReactNode }[] = [
   {
     key: "quality",
     label: "Quản lý thông tin",
+    nhan: "Thông tin",
     icon: (
       <svg viewBox="0 0 24 24" className="h-[21px] w-[21px]" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="12" cy="12" r="4" />
@@ -40,10 +58,11 @@ const TOP_ITEMS: { key: RailTab; label: string; icon: React.ReactNode }[] = [
   },
 ];
 
-const BOTTOM_ITEMS: { key: RailTab; label: string; icon: React.ReactNode }[] = [
+const BOTTOM_ITEMS: Muc[] = [
   {
     key: "test",
     label: "Chat thử với trợ lý",
+    nhan: "Chat thử",
     // Ngôi sao nói "yêu thích / đã ghim", không nói "chỗ thử nghiệm" — sai nghĩa hẳn.
     // Bình thí nghiệm thì ai nhìn cũng hiểu là chỗ làm thử, không đụng khách thật.
     icon: (
@@ -56,9 +75,10 @@ const BOTTOM_ITEMS: { key: RailTab; label: string; icon: React.ReactNode }[] = [
   },
 ];
 
-const SETTINGS: { key: RailTab; label: string; icon: React.ReactNode } = {
+const SETTINGS: Muc = {
   key: "settings",
   label: "Cài đặt",
+    nhan: "Cài đặt",
   icon: (
     <svg viewBox="0 0 24 24" className="h-[21px] w-[21px]" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="3" />
@@ -71,87 +91,78 @@ export function Rail({
   tab,
   onPick,
   badges,
+  anTrenMobile,
 }: {
   tab: RailTab;
   onPick: (t: RailTab) => void;
   badges?: Partial<Record<RailTab, number>>;
+  /** Ẩn thanh ở màn hẹp (vẫn giữ cột dọc từ md). Dùng khi đang mở một hội thoại:
+   *  bàn phím đã ăn nửa màn hình, thêm ô soạn nữa thì thanh điều hướng chiếm nốt chỗ
+   *  đọc tin. WhatsApp/Zalo cũng ẩn — và đã có mũi tên quay lại ở đầu hội thoại. */
+  anTrenMobile?: boolean;
 }) {
+  const nut = (it: Muc, n = 0) => {
+    const on = tab === it.key;
+    return (
+      <button
+        key={it.key}
+        onClick={() => onPick(it.key)}
+        title={it.label}
+        aria-label={it.label}
+        aria-current={on ? "page" : undefined}
+        className={
+          // Ngang: mỗi nút chia đều bề rộng, icon trên chữ dưới, vùng chạm cao 52px
+          // (dưới ~44px là ngón tay bấm trượt sang nút bên cạnh).
+          "relative flex min-h-[52px] flex-1 flex-col items-center justify-center gap-[2px] rounded-[10px] transition hover:bg-[var(--wa-rail-hover)] " +
+          // Dọc: về đúng ô vuông 40px của bản desktop.
+          "md:h-[40px] md:min-h-0 md:w-[40px] md:flex-none md:gap-0"
+        }
+        style={{
+          background: on ? "var(--wa-rail-active)" : "transparent",
+          color: on ? "var(--wa-text)" : "#54656f",
+        }}
+      >
+        <span className="relative flex items-center justify-center">
+          {it.icon}
+          {n > 0 && (
+            <span
+              className="absolute -right-2 -top-1 flex h-[16px] min-w-[16px] items-center justify-center rounded-full px-1 text-[10px] font-bold text-white shadow-xs"
+              style={{ background: "var(--wa-unread)" }}
+            >
+              {n}
+            </span>
+          )}
+        </span>
+        {/* Chữ chỉ ở chế độ ngang: điện thoại không rê chuột được nên không có tooltip. */}
+        <span className="text-[10.5px] leading-none md:hidden">{it.nhan}</span>
+      </button>
+    );
+  };
+
   return (
     <nav
-      className="wa-rail flex w-[58px] shrink-0 flex-col items-center gap-1 border-r py-3 select-none"
-      style={{
-        background: "var(--wa-rail)",
-        borderColor: "var(--wa-border)",
-      }}
+      className={
+        "wa-rail flex select-none " +
+        (anTrenMobile ? "max-md:hidden " : "") +
+        // Ngang (mặc định = mobile-first): full bề ngang, nằm đáy, viền TRÊN.
+        "w-full shrink-0 flex-row items-stretch gap-1 border-t px-1 pt-1 " +
+        // Chừa vạch home của iPhone. Máy không có thì env() = 0.
+        "pb-[max(4px,env(safe-area-inset-bottom))] " +
+        // Dọc từ md: cột 58px bên trái, viền PHẢI.
+        "md:w-[58px] md:flex-col md:items-center md:border-r md:border-t-0 md:px-0 md:py-3 md:pb-3"
+      }
+      style={{ background: "var(--wa-rail)", borderColor: "var(--wa-border)" }}
     >
-      {TOP_ITEMS.map((it) => {
-        const on = tab === it.key;
-        const n = badges?.[it.key] ?? 0;
-        return (
-          <button
-            key={it.key}
-            onClick={() => onPick(it.key)}
-            title={it.label}
-            aria-label={it.label}
-            aria-current={on ? "page" : undefined}
-            className="relative flex h-[40px] w-[40px] items-center justify-center rounded-[10px] transition hover:bg-[var(--wa-rail-hover)]"
-            style={{
-              background: on ? "var(--wa-rail-active)" : "transparent",
-              color: on ? "var(--wa-text)" : "#54656f",
-            }}
-          >
-            {it.icon}
-            {n > 0 && (
-              <span
-                className="absolute -right-1 -top-1 flex h-[16px] min-w-[16px] items-center justify-center rounded-full px-1 text-[10px] font-bold text-white shadow-xs"
-                style={{ background: "var(--wa-unread)" }}
-              >
-                {n}
-              </span>
-            )}
-          </button>
-        );
-      })}
+      {TOP_ITEMS.map((it) => nut(it, badges?.[it.key] ?? 0))}
 
-      {/* Đường phân cách mảnh giữa hai cụm icon chuẩn WhatsApp */}
-      <div className="my-1.5 h-[1px] w-7 bg-[#dedede]" />
+      {/* Vạch ngăn hai cụm: nằm ngang thì thành vạch ĐỨNG. */}
+      <div className="my-1 w-[1px] self-stretch bg-[#dedede] md:my-1.5 md:h-[1px] md:w-7 md:self-auto" />
 
-      {BOTTOM_ITEMS.map((it) => {
-        const on = tab === it.key;
-        return (
-          <button
-            key={it.key}
-            onClick={() => onPick(it.key)}
-            title={it.label}
-            aria-label={it.label}
-            aria-current={on ? "page" : undefined}
-            className="relative flex h-[40px] w-[40px] items-center justify-center rounded-[10px] transition hover:bg-[var(--wa-rail-hover)]"
-            style={{
-              background: on ? "var(--wa-rail-active)" : "transparent",
-              color: on ? "var(--wa-text)" : "#54656f",
-            }}
-          >
-            {it.icon}
-          </button>
-        );
-      })}
+      {BOTTOM_ITEMS.map((it) => nut(it))}
 
-      {/* Cài đặt tách xuống đáy */}
-      <div className="mt-auto">
-        <button
-          onClick={() => onPick(SETTINGS.key)}
-          title={SETTINGS.label}
-          aria-label={SETTINGS.label}
-          aria-current={tab === SETTINGS.key ? "page" : undefined}
-          className="flex h-[40px] w-[40px] items-center justify-center rounded-[10px] transition hover:bg-[var(--wa-rail-hover)]"
-          style={{
-            background: tab === SETTINGS.key ? "var(--wa-rail-active)" : "transparent",
-            color: tab === SETTINGS.key ? "var(--wa-text)" : "#54656f",
-          }}
-        >
-          {SETTINGS.icon}
-        </button>
-      </div>
+      {/* Cài đặt tách xuống đáy — chỉ ở chế độ dọc. Nằm ngang mà đẩy nó ra xa thì
+          khoảng trống giữa các nút không đều, trông như thiếu mất một mục. */}
+      <div className="contents md:mt-auto md:block">{nut(SETTINGS)}</div>
     </nav>
   );
 }

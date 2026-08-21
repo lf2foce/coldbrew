@@ -487,8 +487,11 @@ export default function InboxPage() {
         </div>
       )}
 
-      <div className="flex min-h-0 flex-1">
-        {/* ══ Rail ══ */}
+      {/* Màn hẹp xếp DỌC (thanh điều hướng xuống đáy), từ md xếp NGANG (thanh về trái).
+          `order` lo phần đổi chỗ, nên chỉ có MỘT thanh trong cây DOM — dựng hai bản rồi
+          ẩn bớt thì badge, tiêu điểm bàn phím và trình đọc màn hình đều nhân đôi. */}
+      <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+        {/* ══ Điều hướng: đáy trên mobile, cột trái từ md ══ */}
         <Rail
           tab={tab}
           onPick={(t) => {
@@ -496,8 +499,13 @@ export default function InboxPage() {
             setActiveId(null);
           }}
           badges={{ chat: convs?.filter((c) => c.has_unread).length ?? 0 }}
+          anTrenMobile={tab === "chat" && !!activeId}
         />
 
+        {/* Bọc thêm một lớp: hai khối này luôn NẰM NGANG với nhau (danh sách ↔ chi
+            tiết), kể cả khi khung ngoài đang xếp dọc để nhét thanh điều hướng xuống
+            đáy. Không bọc thì trên mobile danh sách và chi tiết chồng lên nhau. */}
+        <div className="order-first flex min-h-0 min-w-0 flex-1 md:order-none">
         {/* ══ Sidebar: chỉ ở tab Chat. Task và Test tự chiếm cả khung phải ══ */}
         <aside
           className={`${tab !== "chat" ? "hidden" : activeId ? "hidden md:flex" : "flex"} w-full shrink-0 flex-col border-r bg-[var(--wa-panel)] md:w-[380px] lg:w-[420px]`}
@@ -898,6 +906,7 @@ export default function InboxPage() {
             </>
           )}
         </section>
+        </div>
       </div>
 
       {sheetOpen && active && (

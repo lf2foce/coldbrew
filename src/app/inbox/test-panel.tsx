@@ -43,6 +43,10 @@ export function TestPanel() {
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Màn hẹp chỉ đủ chỗ cho MỘT khung. Trước đây danh sách phiên bị `hidden` thẳng,
+  // nên trên điện thoại không có đường nào xem lại phiên cũ — hỏi xong là mất.
+  // Cùng lối với tab Hộp thư: danh sách ↔ chi tiết, có mũi tên quay lại.
+  const [moChat, setMoChat] = useState(false);
 
   const loadSessions = useCallback(async () => {
     if (MOCK || !AGENT_ID) {
@@ -65,6 +69,7 @@ export function TestPanel() {
   const openSession = useCallback(
     async (id: string) => {
       setActiveId(id);
+      setMoChat(true);
       setMessages([]);
       setError(null);
       try {
@@ -78,6 +83,7 @@ export function TestPanel() {
 
   const newSession = useCallback(() => {
     setActiveId(null);
+    setMoChat(true);
     setMessages([]);
     setError(null);
   }, []);
@@ -160,7 +166,7 @@ export function TestPanel() {
     <div className="flex h-full min-w-0 flex-1">
       {/* ── Danh sách phiên ── */}
       <aside
-        className="hidden w-[320px] shrink-0 flex-col border-r bg-[var(--wa-panel)] md:flex lg:w-[360px]"
+        className={`${moChat ? "hidden md:flex" : "flex"} w-full shrink-0 flex-col border-r bg-[var(--wa-panel)] md:w-[320px] lg:w-[360px]`}
         style={{ borderColor: "var(--wa-border)" }}
       >
         <header className="flex h-[60px] shrink-0 items-center justify-between px-4">
@@ -231,7 +237,7 @@ export function TestPanel() {
       </aside>
 
       {/* ── Nội dung ── */}
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className={`${moChat ? "flex" : "hidden md:flex"} min-w-0 flex-1 flex-col`}>
         <header
           className="flex h-[60px] shrink-0 items-center gap-3 px-4"
           style={{ background: "var(--wa-chrome)" }}
@@ -245,12 +251,14 @@ export function TestPanel() {
               Khách không nhìn thấy đoạn chat này
             </span>
           </span>
+          {/* "Phiên mới" đã có ở đầu danh sách; ở đây cần đường VỀ danh sách hơn. */}
           <button
-            onClick={newSession}
+            onClick={() => setMoChat(false)}
+            aria-label="Quay lại danh sách phiên"
             className="rounded-full px-3 py-[5px] text-[13px] font-medium md:hidden"
             style={{ background: "var(--wa-panel)", color: "var(--wa-text)" }}
           >
-            Phiên mới
+            ← Phiên
           </button>
         </header>
 
