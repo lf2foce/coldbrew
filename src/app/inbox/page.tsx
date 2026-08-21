@@ -13,7 +13,7 @@
  * UI lọc tay.
  */
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AGENT_ID, BRAND } from "@/lib/brand";
 import { MOCK, MOCK_CONVERSATIONS, MOCK_DRAFTS, MOCK_MESSAGES } from "@/lib/mock";
 import type { Conversation, Draft, Message, ReplyMode, SearchHit } from "@/lib/types";
@@ -111,13 +111,11 @@ export default function InboxPage() {
   // Mốc thời gian chốt SAU khi mount: dùng ngay lúc render đầu thì server và
   // client ra hai kết quả khác nhau → hydration mismatch.
   const [now, setNow] = useState<Date | null>(null);
-  const endRef = useRef<HTMLDivElement>(null);
   // Giữ danh sách trong ref: hiệu ứng tìm kiếm vừa ĐỌC vừa GHI `convs`, đưa nó
   // vào deps là vòng lặp vô tận (set → effect chạy lại → set…).
   // Tin cần cuộn tới + tô sau khi mở hội thoại từ kết quả tìm kiếm.
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const pendingTargetRef = useRef<string | null>(null);
-  const prevConvRef = useRef<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const convsRef = useRef<Conversation[] | null>(convs);
   useEffect(() => {
@@ -197,9 +195,9 @@ export default function InboxPage() {
     void loadConvs();
   }, [loadConvs]);
 
-  // useLayoutEffect chứ không useEffect: gán scrollTop sau khi trình duyệt đã vẽ
-  // thì người dùng kịp thấy một khung hình ở giữa hội thoại rồi mới giật xuống đáy.
-  useLayoutEffect(() => {
+  // Chỉ còn lo MỘT việc: nhảy tới tin cụ thể khi bấm từ kết quả tìm kiếm. Việc
+  // "về đáy" đã do `flex-col-reverse` lo, không cần code.
+  useEffect(() => {
     const target = pendingTargetRef.current;
     if (target) {
       // Chờ DOM dựng xong rồi mới tìm phần tử. Tin cũ hơn cửa sổ đã tải thì
@@ -208,7 +206,9 @@ export default function InboxPage() {
       const t1 = window.setTimeout(() => {
         const el = document.getElementById(`msg-${target}`);
         if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
-        else scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
+        // Tin cũ hơn cửa sổ đã tải thì không có trong DOM. Trong container đảo
+        // chiều, ĐÁY là scrollTop = 0 — không phải scrollHeight.
+        else scrollRef.current?.scrollTo({ top: 0 });
         pendingTargetRef.current = null;
       }, 200);
       const t2 = window.setTimeout(() => setHighlightId(null), 2800);
@@ -217,21 +217,10 @@ export default function InboxPage() {
         window.clearTimeout(t2);
       };
     }
-    // Không nhắm tin nào → bám đáy. Bám đáy trong lúc đang chờ cuộn tới tin cũ sẽ
-    // cuốn mất đúng cái vừa tô, nên nhánh này phải nằm sau `if (target)`.
-    const vuaDoiHoiThoai = prevConvRef.current !== activeId;
-    prevConvRef.current = activeId;
-    if (vuaDoiHoiThoai) {
-      // MỞ hội thoại: nhảy thẳng, KHÔNG `behavior: "smooth"`. Cuộn mượt ở đây bắt
-      // người ta ngồi xem màn hình chạy từ tin đầu xuống tin cuối mỗi lần bấm — mà
-      // cái họ muốn xem là tin mới nhất, ngay lập tức. Dashboard chính cũng gán
-      // scrollTop thẳng.
-      const el = scrollRef.current;
-      if (el) el.scrollTop = el.scrollHeight;
-    } else {
-      // Tin mới về trong hội thoại ĐANG mở → cuộn mượt, để mắt bắt kịp cái vừa tới.
-      endRef.current?.scrollIntoView({ behavior: "smooth" });
-    }
+    // KHÔNG có nhánh "bám đáy" nào ở đây nữa: container dùng `flex-col-reverse`,
+    // nên đáy CHÍNH LÀ vị trí mặc định — mở hội thoại đã ở đáy, tin mới về cũng nằm
+    // sẵn ở đáy. Và khi người trực đang cuộn lên đọc tin cũ, tin mới tới không giật
+    // màn hình về dưới, vì nó chèn vào đầu DOM chứ không đổi vị trí đang xem.
   }, [messages, drafts, activeId]);
 
   // Tìm theo NỘI DUNG tin: debounce 300ms rồi hỏi backend. Dưới 2 ký tự thì bỏ
@@ -699,15 +688,58 @@ export default function InboxPage() {
                 </IconBtn>
               </header>
 
-              <div ref={scrollRef} className="wa-doodle min-h-0 flex-1 overflow-y-auto px-4 py-3 md:px-[6%]">
+              {/* `flex-col-reverse` = `inverted` của FlatList bên mobile: trình duyệt neo
+                  sẵn ở ĐÁY ngay từ khung hình đầu, nên mở hội thoại là đã thấy tin mới
+                  nhất — không cuộn, không nháy, không phụ thuộc hội thoại dài bao nhiêu.
+                  Gán scrollTop như bản trước vẫn là CUỘN, chỉ là cuộn nhanh: hội thoại
+                  500 tin thì trình duyệt vẫn dựng cả danh sách rồi mới nhảy xuống.
+                  Đổi lại thứ tự trong DOM phải ĐẢO: nháp đứng trước, tin mới trước tin cũ. */}
+              <div
+                ref={scrollRef}
+                className="wa-doodle flex min-h-0 flex-1 flex-col-reverse overflow-y-auto px-4 py-3 md:px-[6%]"
+              >
+                {/* Nháp trợ lý chờ duyệt — thẻ đứt nét để KHÔNG nhầm với tin đã gửi */}
+                {drafts.map((d) => (
+                  <div key={d.id} className="mt-3 flex justify-end">
+                    <div
+                      className="max-w-[85%] rounded-lg border-2 border-dashed p-2.5 md:max-w-[65%]"
+                      style={{ borderColor: "#f0c14b", background: "#fffbea" }}
+                    >
+                      <p className="mb-1 text-[12px] font-medium" style={{ color: "#8a6100" }}>
+                        Trợ lý soạn — chưa gửi
+                      </p>
+                      <div className="text-[14.2px] leading-[19px]" style={{ color: "var(--wa-text)" }}>
+                        <MessageContent content={d.edited_content?.trim() || d.draft_content} />
+                      </div>
+                      <div className="mt-2 flex gap-2">
+                        <button
+                          onClick={() => void approveDraft(d)}
+                          className="rounded-full px-3 py-[5px] text-[13px] font-medium text-white"
+                          style={{ background: "var(--wa-teal)" }}
+                        >
+                          {composer.trim() ? "Sửa rồi gửi" : "Duyệt & gửi"}
+                        </button>
+                        <button
+                          onClick={() => void dismissDraft(d)}
+                          className="rounded-full px-3 py-[5px] text-[13px]"
+                          style={{ background: "var(--wa-panel-head)", color: "var(--wa-text)" }}
+                        >
+                          Bỏ nháp
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
                 {messages === null && (
                   <p className="text-center text-sm" style={{ color: "var(--wa-text-soft)" }}>
                     Đang tải…
                   </p>
                 )}
-                {messages?.map((m, i) => {
+                {[...(messages ?? [])].reverse().map((m, i, rev) => {
                   const mine = m.role !== "user";
-                  const prev = messages[i - 1];
+                  // DOM đảo → tin CŨ hơn nằm ở i + 1, và hiển thị phía TRÊN tin này.
+                  const prev = rev[i + 1];
                   const newDay =
                     now && (!prev || dayLabel(prev.created_at, now) !== dayLabel(m.created_at, now));
                   // Đuôi chỉ ở tin ĐẦU của một cụm cùng phía — WhatsApp thật
@@ -770,39 +802,6 @@ export default function InboxPage() {
                   );
                 })}
 
-                {/* Nháp trợ lý chờ duyệt — thẻ đứt nét để KHÔNG nhầm với tin đã gửi */}
-                {drafts.map((d) => (
-                  <div key={d.id} className="mt-3 flex justify-end">
-                    <div
-                      className="max-w-[85%] rounded-lg border-2 border-dashed p-2.5 md:max-w-[65%]"
-                      style={{ borderColor: "#f0c14b", background: "#fffbea" }}
-                    >
-                      <p className="mb-1 text-[12px] font-medium" style={{ color: "#8a6100" }}>
-                        Trợ lý soạn — chưa gửi
-                      </p>
-                      <div className="text-[14.2px] leading-[19px]" style={{ color: "var(--wa-text)" }}>
-                        <MessageContent content={d.edited_content?.trim() || d.draft_content} />
-                      </div>
-                      <div className="mt-2 flex gap-2">
-                        <button
-                          onClick={() => void approveDraft(d)}
-                          className="rounded-full px-3 py-[5px] text-[13px] font-medium text-white"
-                          style={{ background: "var(--wa-teal)" }}
-                        >
-                          {composer.trim() ? "Sửa rồi gửi" : "Duyệt & gửi"}
-                        </button>
-                        <button
-                          onClick={() => void dismissDraft(d)}
-                          className="rounded-full px-3 py-[5px] text-[13px]"
-                          style={{ background: "var(--wa-panel-head)", color: "var(--wa-text)" }}
-                        >
-                          Bỏ nháp
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                <div ref={endRef} />
               </div>
 
               <Composer
