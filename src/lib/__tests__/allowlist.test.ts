@@ -15,6 +15,8 @@ test("đường trong danh sách thì mở", () => {
   assert.ok(khop("POST", "/v1/conversations/abc/drafts/d1/edit-and-send"));
   assert.ok(khop("PATCH", "/v1/agents/xyz/tickets/t1"));
   assert.ok(khop("PUT", "/v1/agents/xyz"));
+  assert.ok(khop("GET", "/v1/agents/xyz/channels"));
+  assert.ok(khop("POST", "/v1/agents/xyz/channels/i1/auto-reply"));
 });
 
 test("đường ngoài danh sách thì chặn — mặc định là ĐÓNG", () => {
@@ -49,6 +51,6 @@ test("đoạn rỗng không được coi là tham số hợp lệ", () => {
 });
 
 test("số đường mở khớp con số ghi trong README", () => {
-  assert.equal(ALLOWLIST_LEN, 19, "đổi allowlist thì phải sửa cả bảng trong README");
+  assert.equal(ALLOWLIST_LEN, 21, "đổi allowlist thì phải sửa cả bảng trong README");
   assert.equal(ALLOWLIST.length, ALLOWLIST_LEN);
 });

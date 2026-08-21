@@ -179,3 +179,15 @@ export const CHAT_PLATFORMS = new Set(["facebook", "instagram", "zalo", "lark", 
 
 /** Một tin khớp khi tìm nội dung — `GET /conversations/search`. */
 export type SearchHit = { conversation_id: string; message_id: string; snippet: string };
+
+/** Một kênh chat neo vào agent. Backend trả DTO tối giản — KHÔNG có config_json
+ *  (trong đó là page_access_token). */
+export type Kenh = {
+  id: string;
+  platform: string;
+  status: string;
+  label: string;
+  auto_reply_enabled: boolean;
+  /** Mức KÊNH chỉ đổi được cho Meta; Zalo hiện chỉ đọc. */
+  editable: boolean;
+};

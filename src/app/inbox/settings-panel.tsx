@@ -23,6 +23,7 @@ import { MOCK } from "@/lib/mock";
 import {
   HOTFIX_MAX_CHARS,
   type AgentDetail,
+  type Kenh,
   type PromptHotfix,
 } from "@/lib/types";
 import { makeApi } from "@/lib/api";
@@ -89,8 +90,47 @@ export function SettingsPanel() {
   const [savingHotfix, setSavingHotfix] = useState(false);
   const [hotfixMsg, setHotfixMsg] = useState<string | null>(null);
 
-  // Đã gỡ: loadChannels + toggle auto-reply cấp kênh. Xem ghi chú ở phần JSX
-  // bên dưới — hai endpoint integrations không hợp với mô hình API key.
+  const [kenh, setKenh] = useState<Kenh[] | null>(null);
+  const [kenhLoi, setKenhLoi] = useState<string | null>(null);
+  const [dangLuuKenh, setDangLuuKenh] = useState<string | null>(null);
+
+  const loadKenh = useCallback(async () => {
+    if (MOCK || !AGENT_ID) return;
+    setKenhLoi(null);
+    try {
+      setKenh(await api<Kenh[]>(`/agents/${AGENT_ID}/channels`));
+    } catch (e) {
+      setKenhLoi(e instanceof Error ? e.message : String(e));
+    }
+  }, [api]);
+
+  useEffect(() => {
+    void loadKenh();
+  }, [loadKenh]);
+
+  const doiAutoReply = useCallback(
+    async (k: Kenh, bat: boolean) => {
+      setDangLuuKenh(k.id);
+      // Đổi ngay trên màn hình rồi mới gọi API: công tắc phải nhúc nhích tức thì,
+      // không thì người ta bấm lại lần nữa vì tưởng hụt.
+      setKenh((p) => p?.map((x) => (x.id === k.id ? { ...x, auto_reply_enabled: bat } : x)) ?? p);
+      try {
+        await api(`/agents/${AGENT_ID}/channels/${k.id}/auto-reply`, {
+          method: "POST",
+          body: JSON.stringify({ enabled: bat }),
+        });
+      } catch (e) {
+        // Hỏng thì đọc lại trạng thái THẬT, đừng đoán: người trực cần biết chính
+        // xác trợ lý đang bật hay tắt, sai một nấc là khách nhận tin tự động
+        // trong lúc tưởng đã tắt.
+        await loadKenh();
+        setKenhLoi(e instanceof Error ? e.message : String(e));
+      } finally {
+        setDangLuuKenh(null);
+      }
+    },
+    [api, loadKenh],
+  );
 
   const saveHotfix = useCallback(async () => {
     setSavingHotfix(true);
@@ -136,14 +176,73 @@ export function SettingsPanel() {
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6">
-        {/* Mục "Mặc định theo kênh" đã GỠ khỏi bản giao khách.
-            Hai endpoint nó cần (`GET /integrations`, `POST /integrations/meta/set-auto-reply`)
-            thao tác theo TENANT và không nhận `agent_id`, nên chốt khoá-key-theo-agent
-            của backend không với tới: trong workspace nhiều agent, key của agent này
-            sẽ liệt kê được mọi kênh của tenant và bật/tắt kênh của agent khác.
-            Chúng cũng đòi vai admin, kéo cả API key lên quyền quản trị workspace.
-            Khách vẫn tắt/bật trợ lý cho TỪNG hội thoại ở tab Hộp thư; đổi mặc định
-            cả kênh thì làm ở dashboard chính. Chi tiết: runbook 36. */}
+        {/* ── Mặc định theo kênh ──
+            Đi qua /agents/{id}/channels chứ KHÔNG phải /integrations/*: đường cũ
+            thao tác theo tenant nên app khách sẽ thấy và chỉnh được kênh của agent
+            khác trong cùng workspace. Chi tiết: runbook 36. */}
+        {(kenh?.length ?? 0) > 0 && (
+          <section className="mb-6">
+            <h3 className="mb-1 text-[15px] font-semibold" style={{ color: "var(--wa-text)" }}>
+              Trợ lý làm gì khi có khách mới nhắn
+            </h3>
+            <p className="mb-3 text-[13px]" style={{ color: "var(--wa-text-soft)" }}>
+              Đặt cho từng kênh. Một hội thoại cụ thể vẫn chỉnh riêng được ở tab Hộp thư và
+              sẽ <strong>đè lên</strong> mặc định này.
+            </p>
+
+            {kenhLoi && (
+              <div className="mb-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                {kenhLoi}{" "}
+                <button onClick={() => void loadKenh()} className="underline">
+                  Thử lại
+                </button>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              {kenh?.map((k) => (
+                <div
+                  key={k.id}
+                  className="flex items-center gap-3 rounded-xl border p-3"
+                  style={{ borderColor: "var(--wa-border)", background: "var(--wa-panel)" }}
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[14px] font-medium" style={{ color: "var(--wa-text)" }}>
+                      {k.label}
+                    </p>
+                    <p className="text-[12.5px]" style={{ color: "var(--wa-text-soft)" }}>
+                      {PLATFORM_LABEL[k.platform] ?? k.platform}
+                      {k.editable
+                        ? k.auto_reply_enabled
+                          ? " · đang tự trả lời"
+                          : " · chỉ soạn nháp chờ duyệt"
+                        : " · chỉ xem"}
+                    </p>
+                  </div>
+                  {k.editable && (
+                    <button
+                      onClick={() => void doiAutoReply(k, !k.auto_reply_enabled)}
+                      disabled={dangLuuKenh === k.id}
+                      className="shrink-0 rounded-full px-3 py-[6px] text-[13px] font-medium transition disabled:opacity-50"
+                      style={
+                        k.auto_reply_enabled
+                          ? { background: "var(--wa-teal)", color: "#fff" }
+                          : { background: "var(--wa-panel-head)", color: "var(--wa-text)" }
+                      }
+                    >
+                      {k.auto_reply_enabled ? "Đang bật" : "Đang tắt"}
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <p className="mt-2 text-[12.5px]" style={{ color: "var(--wa-text-soft)" }}>
+              Tắt ở đây thì trợ lý vẫn <strong>soạn nháp</strong> để nhân viên duyệt. Muốn trợ lý
+              im hẳn với một khách thì đặt riêng cho hội thoại đó ở tab Hộp thư.
+            </p>
+          </section>
+        )}
 
         {/* ── Luật vá ── */}
         <section className="mb-6">

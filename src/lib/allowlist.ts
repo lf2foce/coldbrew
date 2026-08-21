@@ -35,6 +35,10 @@ export const ALLOWLIST: [string, string][] = [
   // luật vá chưa bao giờ lưu được, mọi lần bấm đều 405.
   ["GET",   "/v1/agents/:agent"],
   ["PUT",   "/v1/agents/:agent"],
+  // Kênh của CHÍNH agent này. Không dùng /integrations/* — hai đường đó thao tác
+  // theo tenant nên app khách sẽ thấy và chỉnh được kênh của agent khác.
+  ["GET",   "/v1/agents/:agent/channels"],
+  ["POST",  "/v1/agents/:agent/channels/:integration/auto-reply"],
 ];
 
 export function khop(method: string, path: string): boolean {
