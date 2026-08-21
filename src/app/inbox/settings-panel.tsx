@@ -343,13 +343,6 @@ export function SettingsPanel() {
                     ))}
                   </div>
                 )}
-                <p className="mt-2 text-[12px]" style={{ color: "var(--wa-text-soft)" }}>
-                  {/* Mô tả phải khớp cái người dùng THẤY: thiếu quyền thì phần đó báo lỗi
-                      đỏ (403), chứ không lặng lẽ biến mất. Viết "không hiện lên" thì người
-                      gặp băng đỏ sẽ đi tìm lỗi kỹ thuật thay vì hiểu ra là thiếu quyền. */}
-                  Phần nào không có quyền tương ứng sẽ báo lỗi khi tải. Cần thêm quyền thì
-                  báo bên cấp khoá.
-                </p>
               </div>
             )}
             <div className="flex items-center justify-end gap-3">

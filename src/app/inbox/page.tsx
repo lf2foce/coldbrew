@@ -97,7 +97,7 @@ export default function InboxPage() {
   const [messages, setMessages] = useState<Message[] | null>(null);
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [composer, setComposer] = useState("");
-  const oSoan = useRef<HTMLInputElement | null>(null);
+  const oSoan = useRef<HTMLTextAreaElement | null>(null);
   // Đang sửa nháp NÀO. `composer` dùng chung cho cả ô soạn lẫn mọi nháp, nên thiếu
   // biến này thì bấm "Sửa" ở nháp A rồi bấm "Duyệt" ở nháp B sẽ gửi chữ của A thành
   // bản sửa của B — gửi thẳng cho khách, không có bước xác nhận nào.
@@ -209,7 +209,11 @@ export default function InboxPage() {
       }
       setMessages(await api<Message[]>(`/conversations/${id}/messages`));
       // Nháp hỏng thì vẫn cho đọc tin — đừng để một endpoint phụ chặn cả màn.
-      setDrafts(await api<Draft[]>(`/conversations/${id}/drafts`).catch(() => []));
+      // `status=pending` — không có thì backend trả CẢ nháp đã gửi và đã bỏ, nên
+      // hội thoại cũ hiện lại một chồng nháp chết kèm nút "Duyệt & gửi".
+      setDrafts(
+        await api<Draft[]>(`/conversations/${id}/drafts?status=pending`).catch(() => []),
+      );
       // ĐÁNH DẤU ĐÃ ĐỌC ngay khi mở. Trước đây chỉ gọi mark-read lúc có tin mới về
       // qua SSE, nên hội thoại người trực vừa đọc xong vẫn nằm nguyên trong "Chưa
       // đọc" — bộ lọc chỉ ra một danh sách không bao giờ vơi, tức là vô dụng.
@@ -765,7 +769,11 @@ export default function InboxPage() {
                 className="wa-doodle flex min-h-0 flex-1 flex-col-reverse overflow-y-auto px-4 pb-8 pt-2 md:px-[6%]"
               >
                 {/* Nháp trợ lý chờ duyệt — thẻ đứt nét để KHÔNG nhầm với tin đã gửi */}
-                {drafts.map((d) => (
+                {/* Chỉ nháp MỚI NHẤT. Backend sắp created_at DESC nên nó đứng đầu.
+                    Khách nhắn tiếp trong lúc chưa ai duyệt thì trợ lý soạn nháp mới —
+                    nháp cũ trả lời câu đã cũ, bày ra chỉ khiến người trực phải đọc để
+                    tự loại. Nháp cũ vẫn còn `pending` ở backend, không bị xoá. */}
+                {drafts.slice(0, 1).map((d) => (
                   <div key={d.id} className="mt-3 flex justify-end">
                     <div
                       className="max-w-[85%] rounded-lg border-2 border-dashed p-2.5 md:max-w-[65%]"

@@ -1,12 +1,24 @@
 "use client";
 
+import { useLayoutEffect, useRef } from "react";
+
 /**
  * Ô soạn tin theo WhatsApp bản mới: nút `+` NGOÀI bên trái, ô nhập bo tròn với
  * icon emoji/sticker NẰM TRONG ô, mic ngoài bên phải. Bản trước em để emoji và
  * đính kèm thành hai nút rời bên ngoài — nhìn thô hơn hẳn.
  *
  * Nút bên phải luôn là vòng tròn xanh: mic khi ô trống, mũi tên gửi khi có chữ.
+ *
+ * Ô nhập là `textarea` CO GIÃN, không phải `input` một dòng: nháp trợ lý thường dài
+ * cả đoạn, mà `input` chỉ cho thấy một dòng — bấm "Sửa" xong không đọc nổi mình đang
+ * sửa cái gì, phải rê ngang từng chữ. Giãn tối đa 4 dòng rồi mới cuộn, để ô soạn
+ * không nuốt hết chỗ đọc tin.
+ *
+ * Enter = gửi, Shift+Enter = xuống dòng — thói quen của mọi app chat. Textarea mặc
+ * định làm ngược lại nên phải chặn tay.
  */
+
+const SO_DONG_TOI_DA = 4;
 
 export function Composer({
   value,
@@ -22,9 +34,22 @@ export function Composer({
   placeholder: string;
   disabled?: boolean;
   /** Để nơi khác đặt con trỏ vào ô soạn — ví dụ bấm "Sửa" ở nháp trợ lý. */
-  oRef?: React.Ref<HTMLInputElement>;
+  oRef?: React.Ref<HTMLTextAreaElement>;
 }) {
   const hasText = value.trim().length > 0;
+  const oTrong = useRef<HTMLTextAreaElement | null>(null);
+
+  // Đo lại chiều cao mỗi lần nội dung đổi. `useLayoutEffect` chứ không `useEffect`:
+  // đo sau khi vẽ thì người dùng thấy ô giật một nhịp mỗi lần gõ xuống dòng.
+  useLayoutEffect(() => {
+    const o = oTrong.current;
+    if (!o) return;
+    // Về 'auto' trước rồi mới đo: giữ nguyên chiều cao cũ thì scrollHeight không bao
+    // giờ nhỏ lại, nên xoá bớt chữ mà ô vẫn cao như cũ.
+    o.style.height = "auto";
+    const doDong = parseFloat(getComputedStyle(o).lineHeight) || 20;
+    o.style.height = `${Math.min(o.scrollHeight, doDong * SO_DONG_TOI_DA)}px`;
+  }, [value]);
 
   return (
     <form
@@ -32,7 +57,7 @@ export function Composer({
         e.preventDefault();
         onSend();
       }}
-      className="flex shrink-0 items-center gap-2 px-4 py-3"
+      className="flex shrink-0 items-end gap-2 px-4 py-3"
       style={{ background: "var(--wa-chrome)" }}
     >
       <button
@@ -48,15 +73,26 @@ export function Composer({
       </button>
 
       <div
-        className="flex min-w-0 flex-1 items-center gap-2 rounded-[22px] px-4 py-[9px]"
+        className="flex min-w-0 flex-1 items-end gap-2 rounded-[22px] px-4 py-[9px]"
         style={{ background: "var(--wa-panel)" }}
       >
-        <input
-          ref={oRef}
+        <textarea
+          ref={(el) => {
+            oTrong.current = el;
+            if (typeof oRef === "function") oRef(el);
+            else if (oRef) (oRef as React.RefObject<HTMLTextAreaElement | null>).current = el;
+          }}
+          rows={1}
           value={value}
           onChange={(e) => onChange(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+              e.preventDefault();
+              onSend();
+            }
+          }}
           placeholder={placeholder}
-          className="min-w-0 flex-1 bg-transparent text-[15px] outline-none placeholder:text-[var(--wa-text-soft)]"
+          className="min-w-0 flex-1 resize-none bg-transparent text-[15px] leading-[20px] outline-none placeholder:text-[var(--wa-text-soft)]"
           style={{ color: "var(--wa-text)" }}
         />
         <button type="button" title="Biểu tượng cảm xúc" aria-label="Biểu tượng cảm xúc" className="shrink-0" style={{ color: "#54656f" }}>
