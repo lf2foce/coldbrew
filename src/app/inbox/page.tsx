@@ -81,8 +81,8 @@ const NHAN_KENH: Record<string, string> = {
   instagram: "Instagram",
   zalo: "Zalo",
   lark: "Lark",
-  web: "Website",
-  web_public: "Web công khai",
+  web: "Nội bộ",
+  web_public: "Web public",
   external_api: "API ngoài",
 };
 

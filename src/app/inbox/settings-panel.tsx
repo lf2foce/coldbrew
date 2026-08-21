@@ -34,7 +34,8 @@ const PLATFORM_LABEL: Record<string, string> = {
   zalo: "Zalo OA",
   lark: "Lark",
   telegram: "Telegram",
-  web: "Website",
+  web: "Nội bộ",
+  web_public: "Web public",
 };
 
 
@@ -93,6 +94,7 @@ export function SettingsPanel() {
   const [kenh, setKenh] = useState<Kenh[] | null>(null);
   const [kenhLoi, setKenhLoi] = useState<string | null>(null);
   const [dangLuuKenh, setDangLuuKenh] = useState<string | null>(null);
+  const [dangChonKenh, setDangChonKenh] = useState<Kenh | null>(null);
 
   const loadKenh = useCallback(async () => {
     if (MOCK || !AGENT_ID) return;
@@ -222,16 +224,12 @@ export function SettingsPanel() {
                     </p>
                     <p className="text-[12.5px]" style={{ color: "var(--wa-text-soft)" }}>
                       {PLATFORM_LABEL[k.platform] ?? k.platform}
-                      {k.editable
-                        ? k.auto_reply_enabled
-                          ? " · đang tự trả lời"
-                          : " · chỉ soạn nháp chờ duyệt"
-                        : " · chỉ xem"}
+                      {k.editable ? "" : " · chỉ xem, không đổi được từ đây"}
                     </p>
                   </div>
                   {k.editable && (
                     <button
-                      onClick={() => void doiAutoReply(k, !k.auto_reply_enabled)}
+                      onClick={() => setDangChonKenh(k)}
                       disabled={dangLuuKenh === k.id}
                       className="shrink-0 rounded-full px-3 py-[6px] text-[13px] font-medium transition disabled:opacity-50"
                       style={
@@ -240,7 +238,10 @@ export function SettingsPanel() {
                           : { background: "var(--wa-panel-head)", color: "var(--wa-text)" }
                       }
                     >
-                      {k.auto_reply_enabled ? "Đang bật" : "Đang tắt"}
+                      {/* KHÔNG dùng chữ "Tắt": ở mức kênh, tắt tự-trả-lời nghĩa là trợ
+                          lý chuyển sang soạn nháp chờ duyệt, chứ không im lặng. Gọi là
+                          "tắt" thì người trực tưởng khách không được phản hồi gì. */}
+                      {k.auto_reply_enabled ? "Tự động trả lời" : "Soạn nháp chờ duyệt"}
                     </button>
                   )}
                 </div>
@@ -248,8 +249,7 @@ export function SettingsPanel() {
             </div>
 
             <p className="mt-2 text-[12.5px]" style={{ color: "var(--wa-text-soft)" }}>
-              Tắt ở đây thì trợ lý vẫn <strong>soạn nháp</strong> để nhân viên duyệt. Muốn trợ lý
-              im hẳn với một khách thì đặt riêng cho hội thoại đó ở tab Hộp thư.
+              Bấm vào chế độ bên phải để đổi cho cả kênh.
             </p>
           </section>
         )}
@@ -355,6 +355,56 @@ export function SettingsPanel() {
           </dl>
         </section>
       </div>
+
+      {dangChonKenh && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center" role="dialog" aria-modal>
+          <button className="absolute inset-0 bg-black/30" onClick={() => setDangChonKenh(null)} aria-label="Đóng" />
+          <div className="relative w-full max-w-md rounded-t-2xl bg-white p-2 shadow-xl sm:rounded-2xl">
+            <p className="px-4 pb-1 pt-3 text-[15px] font-medium" style={{ color: "var(--wa-text)" }}>
+              Mặc định cho {dangChonKenh.label}
+            </p>
+            <p className="px-4 pb-2 text-[12.5px]" style={{ color: "var(--wa-text-soft)" }}>
+              Áp cho mọi khách nhắn vào kênh này.
+            </p>
+            {([
+              [true, "Tự động trả lời", "Trợ lý trả lời khách ngay, không cần duyệt"],
+              [false, "Soạn nháp chờ duyệt", "Trợ lý soạn sẵn, nhân viên bấm gửi"],
+            ] as [boolean, string, string][]).map(([bat, nhan, mota]) => {
+              const on = dangChonKenh.auto_reply_enabled === bat;
+              return (
+                <button
+                  key={String(bat)}
+                  onClick={() => {
+                    const k = dangChonKenh;
+                    setDangChonKenh(null);
+                    if (k.auto_reply_enabled !== bat) void doiAutoReply(k, bat);
+                  }}
+                  className="flex w-full items-start gap-3 rounded-xl px-4 py-3 text-left transition hover:bg-black/[0.03]"
+                >
+                  <span
+                    className="mt-[3px] flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border-2"
+                    style={{ borderColor: on ? "var(--wa-teal)" : "var(--wa-border-strong)" }}
+                  >
+                    {on && <span className="h-[9px] w-[9px] rounded-full" style={{ background: "var(--wa-teal)" }} />}
+                  </span>
+                  <span>
+                    <span className="block text-[14.5px]" style={{ color: "var(--wa-text)" }}>{nhan}</span>
+                    <span className="block text-[12.5px]" style={{ color: "var(--wa-text-soft)" }}>{mota}</span>
+                  </span>
+                </button>
+              );
+            })}
+            {/* Mức kênh CHỈ có hai nấc: backend lưu `runtime.auto_reply_enabled` là
+                boolean. Nấc thứ ba — trợ lý im hẳn — chỉ tồn tại ở mức hội thoại
+                (`reply_mode_override: auto_send | advisor | off`). Nói thẳng ra đây,
+                không thì người trực đi tìm mãi một lựa chọn không có. */}
+            <p className="px-4 pb-3 pt-1 text-[12.5px]" style={{ color: "var(--wa-text-soft)" }}>
+              Muốn trợ lý <strong>im hẳn</strong> thì đặt riêng cho từng hội thoại ở tab Hộp thư —
+              mức kênh không có lựa chọn đó.
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
