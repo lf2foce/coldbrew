@@ -111,8 +111,12 @@ export function QualityPanel({ onOpenConversation }: { onOpenConversation: (id: 
                 label="Tỉ lệ không đáp được"
                 tone={data.fallback_rate > 0.1 ? "#a33a33" : undefined}
               />
-              <Stat value={String(data.kb_gap_count)} label="Thiếu trong tài liệu" tone="#8a6100" />
-              <Stat value={String(data.catalog_miss_count)} label="Thiếu trong danh mục" />
+              {/* "Số câu căn cứ yếu" chứ không phải "Thiếu trong tài liệu": con số này
+                  đếm số LƯỢT TRUY VẤN mà nguồn khớp nhất có điểm dưới ngưỡng 0.72, chứ
+                  không đếm tài liệu còn thiếu. Nhiều lượt trong đó vẫn trả lời đúng và
+                  đủ — ngưỡng chưa từng được hiệu chỉnh bằng dữ liệu thật.
+                  Card "Thiếu trong danh mục" đã bỏ: catalog_miss = 0 ở cả 7/30/90 ngày. */}
+              <Stat value={String(data.kb_gap_count)} label="Số câu căn cứ yếu" tone="#8a6100" />
             </div>
 
             <h3 className="mb-2 mt-5 text-[15px] font-semibold" style={{ color: "var(--wa-text)" }}>

@@ -108,12 +108,27 @@ function TicketCard({
   );
 }
 
+const PLATFORM_LABEL: Record<string, string> = {
+  facebook: "Facebook",
+  instagram: "Instagram",
+  zalo: "Zalo OA",
+  lark: "Lark",
+  telegram: "Telegram",
+  web: "Nội bộ",
+  web_public: "Web public",
+  external_api: "API ngoài",
+};
+
 export function TicketsPanel({ onOpenConversation }: { onOpenConversation: (id: string) => void }) {
   const api = useMemo(() => makeApi(), []);
   const [tickets, setTickets] = useState<Ticket[] | null>(MOCK ? MOCK_TICKETS : null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [wide, setWide] = useState(false);
+  // Mặc định Facebook: `external_api` là kênh chạy bộ đề thử, và ticket sinh ra từ đó
+  // là dữ liệu test ("Nguyễn Văn A / 0912345678"). Trộn chung thì cột "Mới" đầy yêu
+  // cầu giả, người trực không biết cái nào là khách thật cần gọi lại.
+  const [nguon, setNguon] = useState<string>("facebook");
 
   // Chọn kiểu xem theo bề ngang THẬT của cửa sổ, không đoán theo thiết bị.
   useEffect(() => {
@@ -163,11 +178,47 @@ export function TicketsPanel({ onOpenConversation }: { onOpenConversation: (id: 
 
   /** Nhóm theo cột. Trạng thái lạ từ backend vẫn phải hiện ở đâu đó — dồn vào
    *  "Đã đóng" còn hơn để nó biến mất im lặng. */
+  /** Nguồn thật sự có trong danh sách, để không hiện chip cho kênh khách chưa dùng. */
+  const cacNguon = useMemo(() => {
+    const đếm = new Map<string, number>();
+    for (const t of tickets ?? []) {
+      const k = t.platform === "fb" ? "facebook" : t.platform || "khác";
+      đếm.set(k, (đếm.get(k) ?? 0) + 1);
+    }
+    return [...đếm].sort((a, b) => b[1] - a[1]);
+  }, [tickets]);
+
   const columns = useMemo(() => {
     const by: Record<string, Ticket[]> = Object.fromEntries(TICKET_STATUSES.map((s) => [s, []]));
-    for (const t of tickets ?? []) (by[t.status] ?? by.closed).push(t);
+    // Lọc ở CLIENT, không ở server: endpoint tickets chưa nhận tham số platform, và
+    // limit=200 nên với khối lượng hiện tại (HDX ~30 ticket) là đủ. Khi nào vượt 200
+    // thì phải đẩy bộ lọc xuống SQL, không thì con số trên chip bắt đầu nói dối.
+    const hợp = (t: Ticket) =>
+      nguon === "all" || (t.platform === "fb" ? "facebook" : t.platform || "khác") === nguon;
+    for (const t of (tickets ?? []).filter(hợp)) (by[t.status] ?? by.closed).push(t);
     return by;
-  }, [tickets]);
+  }, [tickets, nguon]);
+
+  const daiNguon = cacNguon.length > 1 && (
+    <div className="flex shrink-0 gap-2 overflow-x-auto px-4 pb-2">
+      {[["all", "Tất cả", (tickets ?? []).length] as const, ...cacNguon.map(([k, n]) => [k, PLATFORM_LABEL[k] ?? k, n] as const)].map(
+        ([key, nhan, n]) => (
+          <button
+            key={key}
+            onClick={() => setNguon(key)}
+            className="shrink-0 whitespace-nowrap rounded-full px-3 py-[5px] text-[13px] transition"
+            style={
+              nguon === key
+                ? { background: "#e7fce3", color: "var(--wa-teal)", fontWeight: 500 }
+                : { background: "var(--wa-panel)", color: "var(--wa-text-soft)" }
+            }
+          >
+            {nhan} {n}
+          </button>
+        ),
+      )}
+    </div>
+  );
 
   const header = (
     <header className="flex h-[60px] shrink-0 items-center justify-between px-4">
@@ -209,6 +260,7 @@ export function TicketsPanel({ onOpenConversation }: { onOpenConversation: (id: 
     return (
       <div className="flex h-full flex-col" style={{ background: "var(--wa-panel-head)" }}>
         {header}
+        {daiNguon}
         <div className="px-4">{body}</div>
         <div className="min-h-0 flex-1 overflow-x-auto px-4 pb-4">
           <div className="flex h-full gap-3">
@@ -258,6 +310,7 @@ export function TicketsPanel({ onOpenConversation }: { onOpenConversation: (id: 
   return (
     <div className="flex h-full flex-col bg-[var(--wa-panel)]">
       {header}
+      {daiNguon}
       <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
         {body}
         {TICKET_STATUSES.map((st) => {
