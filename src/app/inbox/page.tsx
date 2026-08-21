@@ -124,8 +124,11 @@ export default function InboxPage() {
   // Tin cần cuộn tới + tô sau khi mở hội thoại từ kết quả tìm kiếm.
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const pendingTargetRef = useRef<string | null>(null);
+  // Giữ danh sách trong ref: openConv cần đọc nó để biết có phải nạp bù không, mà
+  // thêm `convs` vào deps thì hàm dựng lại mỗi lần danh sách đổi — kéo theo mọi chỗ
+  // nhận nó làm prop cũng render lại theo.
+  const convsRef = useRef<Conversation[] | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const convsRef = useRef<Conversation[] | null>(convs);
   useEffect(() => {
     convsRef.current = convs;
   }, [convs]);
@@ -190,6 +193,15 @@ export default function InboxPage() {
       return;
     }
     try {
+      // NẠP BÙ hội thoại chưa có trong danh sách. Danh sách chỉ tải 50 cái mới nhất,
+      // trong khi tab "Trợ lý còn yếu" trỏ tới hội thoại tính trong 30 ngày — đo thật
+      // ngày 21/08: 20/20 hội thoại trong danh sách yếu đều NẰM NGOÀI 50 cái đó. Không
+      // nạp bù thì `active` (tìm bằng convs.find) ra null, và khung phải hiện "Chọn một
+      // hội thoại" dù tin đã tải xong — bấm "Mở hội thoại" tưởng như không có tác dụng.
+      if (!convsRef.current?.some((c) => c.id === id)) {
+        const bu = await api<Conversation>(`/conversations/${id}`).catch(() => null);
+        if (bu) setConvs((p) => (p?.some((c) => c.id === bu.id) ? p : [bu, ...(p ?? [])]));
+      }
       setMessages(await api<Message[]>(`/conversations/${id}/messages`));
       // Nháp hỏng thì vẫn cho đọc tin — đừng để một endpoint phụ chặn cả màn.
       setDrafts(await api<Draft[]>(`/conversations/${id}/drafts`).catch(() => []));
@@ -204,6 +216,10 @@ export default function InboxPage() {
       setMessages([]);
     }
   }, [api]);
+
+  useEffect(() => {
+    convsRef.current = convs;
+  }, [convs]);
 
   useEffect(() => {
     void loadConvs();

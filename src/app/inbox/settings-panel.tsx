@@ -191,10 +191,6 @@ export function SettingsPanel() {
             <h3 className="mb-1 text-[15px] font-semibold" style={{ color: "var(--wa-text)" }}>
               Trợ lý làm gì khi có khách mới nhắn
             </h3>
-            <p className="mb-3 text-[13px]" style={{ color: "var(--wa-text-soft)" }}>
-              Đặt cho từng kênh. Một hội thoại cụ thể vẫn chỉnh riêng được ở tab Hộp thư và
-              sẽ <strong>đè lên</strong> mặc định này.
-            </p>
 
             {kenhLoi && (
               <div className="mb-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
@@ -263,7 +259,7 @@ export function SettingsPanel() {
             value={hotfix}
             onChange={(e) => setHotfix(e.target.value.slice(0, HOTFIX_MAX_CHARS))}
             rows={5}
-            placeholder="Ví dụ: Từ 20/8, học phí lớp trực tuyến là 1.800.000đ/tháng. Không nhận bé dưới 3 tuổi."
+            placeholder="Ví dụ: Từ 20/8, giá khám dịch vụ là 150.000đ/lượt. Khoa Nhi không khám chiều thứ Bảy."
             className="w-full resize-y rounded-xl border p-3 text-[14px] outline-none"
             style={{ borderColor: "var(--wa-border-strong)", color: "var(--wa-text)" }}
           />
@@ -304,17 +300,9 @@ export function SettingsPanel() {
             Tài khoản
           </h3>
           <div
-            className="flex items-center justify-between gap-3 rounded-xl border p-3"
+            className="flex items-center justify-end gap-3 rounded-xl border p-3"
             style={{ borderColor: "var(--wa-border)" }}
           >
-            <span className="min-w-0">
-              <span className="block truncate text-[14.5px]" style={{ color: "var(--wa-text)" }}>
-                {"Đang đăng nhập bằng mật khẩu chung"}
-              </span>
-              <span className="block text-[12.5px]" style={{ color: "var(--wa-text-soft)" }}>
-                Đăng xuất rồi vào lại cần mật khẩu truy cập
-              </span>
-            </span>
             <button
               onClick={() => {
                 void fetch("/api/logout", { method: "POST" }).then(() => {
