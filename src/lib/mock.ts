@@ -84,7 +84,7 @@ export const MOCK_DRAFTS: Record<string, Draft[]> = {
   c3: [
     {
       id: "d1",
-      content:
+      draft_content:
         "Dạ sổ hồng của dự án đang trong quá trình cấp cho từng căn ạ. Anh/chị để lại số điện thoại để bộ phận pháp lý báo tiến độ chính xác nhé?",
       created_at: "2026-08-18T07:06:00.000Z",
     },

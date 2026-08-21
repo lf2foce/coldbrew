@@ -37,7 +37,14 @@ export type Message = {
 /** Nháp trợ lý soạn khi hội thoại ở chế độ "advisor". */
 export type Draft = {
   id: string;
-  content: string;
+  /** Nội dung trợ lý soạn. Backend đặt tên `draft_content`, KHÔNG phải `content` —
+   *  bản trước khai `content` nên mọi thẻ nháp hiện ra rỗng trơn: có nút "Duyệt &
+   *  gửi" mà không thấy gửi cái gì. TypeScript không bắt được vì kiểu này do mình
+   *  tự khai, không sinh từ backend. */
+  draft_content: string;
+  /** Bản người thật sửa lại; có thì hiện cái này thay cho draft_content. */
+  edited_content?: string | null;
+  status?: string;
   created_at: string;
 };
 

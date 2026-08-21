@@ -345,7 +345,7 @@ export default function InboxPage() {
           {
             id: `sent-${d.id}`,
             role: "human_agent",
-            content: edited || d.content,
+            content: edited || d.edited_content?.trim() || d.draft_content,
             created_at: new Date().toISOString(),
           },
         ]);
@@ -765,7 +765,7 @@ export default function InboxPage() {
                         Trợ lý soạn — chưa gửi
                       </p>
                       <p className="whitespace-pre-wrap text-[14.2px] leading-[19px]" style={{ color: "var(--wa-text)" }}>
-                        {d.content}
+                        {d.edited_content?.trim() || d.draft_content}
                       </p>
                       <div className="mt-2 flex gap-2">
                         <button
