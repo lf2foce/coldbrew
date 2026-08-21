@@ -38,6 +38,9 @@ export const ALLOWLIST: [string, string][] = [
   // Kênh của CHÍNH agent này. Không dùng /integrations/* — hai đường đó thao tác
   // theo tenant nên app khách sẽ thấy và chỉnh được kênh của agent khác.
   ["GET",   "/v1/agents/:agent/channels"],
+  // "Tôi là ai, với quyền gì" — chỉ trả vai + danh sách quyền để HIỆN, không trả
+  // khoá cũng không trả tenant_id.
+  ["GET",   "/v1/users/me/principal"],
   ["POST",  "/v1/agents/:agent/channels/:integration/auto-reply"],
 ];
 

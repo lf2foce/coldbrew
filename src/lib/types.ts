@@ -14,6 +14,35 @@ export const REPLY_MODES: { value: Exclude<ReplyMode, null>; label: string; hint
   { value: "off", label: "Tắt trợ lý", hint: "Chỉ nhân viên trả lời, trợ lý im lặng" },
 ];
 
+/** Nhãn NGUỒN hội thoại — một bản duy nhất cho cả app.
+ *
+ * Trước đây mỗi panel tự chép một bản và ba bản đã lệch nhau: cùng một hội thoại,
+ * Hộp thư ghi "Website" còn Yêu cầu khách ghi "Nội bộ". Người trực đọc hai tab
+ * tưởng hai nguồn khác nhau.
+ *
+ * Lưu ý `web` KHÔNG phải website: đó là chat từ dashboard/app nội bộ, tức nhân viên
+ * đang thử bot. Website thật là `web_public` (widget nhúng). Đặt tên nhầm chỗ này
+ * là lý do bản ở Hộp thư ghi "Website".
+ */
+export const NHAN_NGUON: Record<string, string> = {
+  facebook: "Facebook",
+  instagram: "Instagram",
+  zalo: "Zalo OA",
+  lark: "Lark",
+  telegram: "Telegram",
+  phechat: "PheChat",
+  web: "Chat thử",
+  web_public: "Widget website",
+  external_api: "API ngoài",
+};
+
+/** Nguồn lạ thì trả về chính mã của nó — thà hiện "tiktok" còn hơn hiện trống trơn
+ *  rồi người đọc tưởng hội thoại không có nguồn. */
+export function nhanNguon(p: string | null | undefined): string {
+  if (!p) return "Không rõ nguồn";
+  return NHAN_NGUON[p] ?? p;
+}
+
 export type Conversation = {
   id: string;
   /** Tên THÔ do nền tảng đặt lúc tạo hội thoại — thường là "New conversation" và
@@ -34,11 +63,30 @@ export type Conversation = {
   has_pending_draft?: boolean;
 };
 
+/** Một nguồn trợ lý đã dựa vào. `source_id` chính là con số trong dấu `[1]` giữa câu
+ *  trả lời — nối hai thứ này lại thì bấm vào chip là biết câu đó lấy từ đâu. */
+export type Citation = {
+  source_id: number;
+  filename?: string;
+  page?: number | null;
+  score?: number | null;
+  source_path?: string | null;
+  source_links?: { file_url?: string | null; folder_url?: string | null };
+  /** Metadata của node embedding. Chứa danh tính TỆP (`file_id` do file_processor
+   *  gắn, `drive_file_id`/`source_file_id` do google_drive_sync gắn) — thứ dùng để
+   *  gom nhiều đoạn cùng một tài liệu. Kiểu mở vì đây là túi tuỳ nguồn nạp. */
+  metadata?: Record<string, unknown> | null;
+};
+
 export type Message = {
   id: string;
   role: "user" | "assistant" | "human_agent";
   content: string;
   created_at: string;
+  /** Backend trả nguyên cột `metadata` của tin. Nguồn nằm ở `metadata.citations` —
+   *  có sẵn khi tải lại hội thoại; còn lúc đang chat thì tới qua sự kiện SSE
+   *  `citations_updated` (nguồn chỉ biết được SAU khi trả lời xong). */
+  metadata?: { citations?: Citation[] } | null;
 };
 
 /** Nháp trợ lý soạn khi hội thoại ở chế độ "advisor". */
@@ -51,6 +99,9 @@ export type Draft = {
   draft_content: string;
   /** Bản người thật sửa lại; có thì hiện cái này thay cho draft_content. */
   edited_content?: string | null;
+  /** Nguồn trợ lý dựa vào khi soạn nháp — backend trả sẵn (`_draft_to_dict`). Người
+   *  duyệt cần thấy để biết nháp này có căn cứ hay bịa, TRƯỚC khi bấm gửi cho khách. */
+  citations?: Citation[];
   status?: string;
   created_at: string;
 };
@@ -141,7 +192,13 @@ export type AgentQuality = {
   feedback: Record<string, number>;
   kb_gap_count: number;
   catalog_miss_count: number;
-  fallback_rate: number;
+  /** null = chưa đo được lần nào sau khi bật đếm mẫu số. PHẢI ẩn con số, đừng
+   *  hiện 0% — "chưa biết" khác hẳn "0% hỏng". */
+  fallback_rate: number | null;
+  /** Mốc bắt đầu đo được tỉ lệ (ISO). null = chưa có. */
+  measured_since?: string | null;
+  /** Số lượt thực sự truy vấn tri thức — mẫu số của fallback_rate. */
+  kb_query_count?: number;
   top_failed_questions: FailedQuestion[];
 };
 
@@ -194,7 +251,70 @@ export type Kenh = {
   platform: string;
   status: string;
   label: string;
+  /** BA nấc — đây mới là trường nên đọc. `auto_reply_enabled` không phân biệt được
+   *  "soạn nháp chờ duyệt" với "im hẳn": cả hai đều là false. */
+  reply_mode?: Exclude<ReplyMode, null>;
+  /** Giữ cho tương thích ngược. ĐỪNG dùng để hiện trạng thái — xem `reply_mode`. */
   auto_reply_enabled: boolean;
   /** Mức KÊNH chỉ đổi được cho Meta; Zalo hiện chỉ đọc. */
   editable: boolean;
+};
+
+/** Nấc hiện hành của một kênh. Backend cũ chưa trả `reply_mode` thì suy từ cờ boolean
+ *  — suy được "tự gửi" hay "không tự gửi", nhưng KHÔNG suy được "im hẳn", nên nấc đó
+ *  chỉ hiện khi backend nói rõ. Đoán bừa ở đây thì màn hình báo trợ lý im trong khi
+ *  nó vẫn đang soạn nháp. */
+export function nacCuaKenh(k: Kenh): Exclude<ReplyMode, null> {
+  return k.reply_mode ?? (k.auto_reply_enabled ? "auto_send" : "advisor");
+}
+
+/** "Tôi là ai, với quyền gì" — `GET /users/me/principal`.
+ *
+ * `auth_source` phân biệt hai loại principal: `clerk` là người thật đăng nhập,
+ * `app_key` là khoá API của app này đóng vai. Với coldbrew thì luôn là `app_key`,
+ * nên VAI hiện lên là quyền của KHOÁ chứ không phải của người đang ngồi trước máy
+ * — nói nhầm chỗ này thì người trực tưởng bị giới hạn cá nhân. */
+export type Principal = {
+  auth_source: "clerk" | "app_key";
+  role: string | null;
+  email: string | null;
+  name: string | null;
+  agent_id: string | null;
+  scopes: string[];
+};
+
+/** Nhãn tiếng Việt cho từng quyền. Thiếu quyền là màn hình lặng lẽ mất một mục —
+ *  bày danh sách ra để người trực tự soi được vì sao không thấy cái mình cần. */
+export const NHAN_QUYEN: Record<string, string> = {
+  // ── App hộp thư (runbook 36) ──
+  "inbox:read": "Xem hộp thư",
+  "inbox:reply": "Trả lời khách",
+  "inbox:reply_mode": "Đổi nấc trả lời của hội thoại",
+  "drafts:read": "Xem nháp trợ lý",
+  "drafts:approve": "Duyệt / sửa nháp",
+  "tickets:read": "Xem yêu cầu khách",
+  "tickets:write": "Đổi trạng thái yêu cầu",
+  "quality:read": "Xem chất lượng trợ lý",
+  "channels:read": "Xem kênh đã nối",
+  "channels:auto_reply": "Đổi nấc trả lời của kênh",
+  "agent:read": "Xem cấu hình trợ lý",
+  "agent:config:write": "Sửa luật bổ sung",
+  "chat:test": "Chat thử với trợ lý",
+  // ── Quyền của các loại key khác cùng hệ (đối tác, webhook) ──
+  // Có mặt ở đây để key nào lỡ mang chúng thì màn hình vẫn đọc ra tiếng Việt, thay
+  // vì phun mã thô cho người trực.
+  "messages:read": "Đọc tin nhắn (API đối tác)",
+  "messages:send": "Gửi tin nhắn (API đối tác)",
+  "customers:read": "Xem khách hàng",
+  "threads:read": "Đọc luồng hội thoại",
+  "effectiveness:read": "Xem hiệu quả",
+  "analytics:workspace:ask": "Hỏi dữ liệu workspace",
+  "webhooks:manage": "Quản lý webhook",
+};
+
+export const NHAN_VAI: Record<string, string> = {
+  owner: "Toàn quyền",
+  admin: "Quản trị",
+  editor: "Chỉnh sửa",
+  viewer: "Chỉ xem",
 };

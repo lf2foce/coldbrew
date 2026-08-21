@@ -16,6 +16,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AGENT_ID, BRAND } from "@/lib/brand";
 import { MOCK, MOCK_CONVERSATIONS, MOCK_DRAFTS, MOCK_MESSAGES } from "@/lib/mock";
+import { NHAN_NGUON } from "@/lib/types";
 import type { Conversation, Draft, Message, ReplyMode, SearchHit } from "@/lib/types";
 import { Highlight } from "@/components/highlight";
 import { MessageContent } from "@/components/message-content";
@@ -29,14 +30,6 @@ import { QualityPanel } from "./quality-panel";
 import { SettingsPanel } from "./settings-panel";
 import { makeApi } from "@/lib/api";
 import { useConversationStream } from "@/lib/use-conversation-stream";
-
-const PLATFORM_LABEL: Record<string, string> = {
-  facebook: "Facebook",
-  zalo: "Zalo",
-  lark: "Lark",
-  web: "Website",
-  instagram: "Instagram",
-};
 
 function timeOnly(iso: string): string {
   return new Date(iso).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
@@ -457,7 +450,7 @@ export default function InboxPage() {
     const last = list?.[list.length - 1];
     if (!last)
       return {
-        text: `${PLATFORM_LABEL[c.platform || "web"] ?? c.platform} · ${c.message_count ?? 0} tin`,
+        text: `${NHAN_NGUON[c.platform || "web"] ?? c.platform} · ${c.message_count ?? 0} tin`,
         mine: false,
       };
     return { text: last.content, mine: last.role !== "user" };
@@ -708,7 +701,7 @@ export default function InboxPage() {
                     {tenHoiThoai(active)}
                   </span>
                   <span className="block text-[13px]" style={{ color: "var(--wa-text-soft)" }}>
-                    {PLATFORM_LABEL[active.platform || "web"] ?? active.platform}
+                    {NHAN_NGUON[active.platform || "web"] ?? active.platform}
                   </span>
                 </span>
                 <ReplyModeChip
@@ -751,7 +744,10 @@ export default function InboxPage() {
                         Trợ lý soạn — chưa gửi
                       </p>
                       <div className="text-[14.2px] leading-[19px]" style={{ color: "var(--wa-text)" }}>
-                        <MessageContent content={d.edited_content?.trim() || d.draft_content} />
+                        <MessageContent
+                          content={d.edited_content?.trim() || d.draft_content}
+                          citations={d.citations}
+                        />
                       </div>
                       <div className="mt-2 flex gap-2">
                         <button
@@ -828,7 +824,7 @@ export default function InboxPage() {
                             className="text-[14.2px] leading-[19px]"
                             style={{ color: "var(--wa-text)" }}
                           >
-                            <MessageContent content={m.content} />
+                            <MessageContent content={m.content} citations={m.metadata?.citations} />
                           </div>
                           <span
                             className="float-right ml-2 mt-[3px] flex items-center text-[11px] leading-none"

@@ -19,7 +19,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AGENT_ID } from "@/lib/brand";
 import { MOCK, MOCK_TICKETS } from "@/lib/mock";
-import { TICKET_STATUS_LABEL, TICKET_STATUSES, type Ticket, type TicketStatus } from "@/lib/types";
+import { NHAN_NGUON, TICKET_STATUS_LABEL, TICKET_STATUSES, type Ticket, type TicketStatus } from "@/lib/types";
 import { makeApi } from "@/lib/api";
 
 const STATUS_STYLE: Record<string, { bg: string; fg: string; dot: string }> = {
@@ -108,17 +108,6 @@ function TicketCard({
   );
 }
 
-const PLATFORM_LABEL: Record<string, string> = {
-  facebook: "Facebook",
-  instagram: "Instagram",
-  zalo: "Zalo OA",
-  lark: "Lark",
-  telegram: "Telegram",
-  web: "Nội bộ",
-  web_public: "Web public",
-  external_api: "API ngoài",
-};
-
 export function TicketsPanel({ onOpenConversation }: { onOpenConversation: (id: string) => void }) {
   const api = useMemo(() => makeApi(), []);
   const [tickets, setTickets] = useState<Ticket[] | null>(MOCK ? MOCK_TICKETS : null);
@@ -201,7 +190,7 @@ export function TicketsPanel({ onOpenConversation }: { onOpenConversation: (id: 
 
   const daiNguon = cacNguon.length > 1 && (
     <div className="flex shrink-0 gap-2 overflow-x-auto px-4 pb-2">
-      {[["all", "Tất cả", (tickets ?? []).length] as const, ...cacNguon.map(([k, n]) => [k, PLATFORM_LABEL[k] ?? k, n] as const)].map(
+      {[["all", "Tất cả", (tickets ?? []).length] as const, ...cacNguon.map(([k, n]) => [k, NHAN_NGUON[k] ?? k, n] as const)].map(
         ([key, nhan, n]) => (
           <button
             key={key}

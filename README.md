@@ -86,6 +86,7 @@ Backend đổi hình dạng phản hồi ở bất kỳ dòng nào trong bảng 
 | `GET /v1/conversations?agent_id&scope&limit&offset` | danh sách hộp thư |
 | `GET /v1/conversations/{id}` | mở một hội thoại |
 | `GET /v1/conversations/{id}/messages` | đọc tin |
+| `GET /v1/conversations/{id}/messages/{msgId}` | nhảy tới đúng một tin (deep-link từ tab Trợ lý còn yếu) |
 | `POST /v1/conversations/{id}/reply` | người thật trả lời |
 | `POST /v1/conversations/{id}/reply-mode` | bật/tắt bot cho hội thoại |
 | `POST /v1/conversations/{id}/mark-read` | đánh dấu đã đọc |
@@ -95,8 +96,14 @@ Backend đổi hình dạng phản hồi ở bất kỳ dòng nào trong bảng 
 | `GET /v1/conversations/search?agent_id&q` | tìm theo nội dung tin (`agent_id` BẮT BUỘC, `q` ≥2 ký tự) |
 | `GET /v1/agents/{id}/tickets` | tab Yêu cầu khách (envelope `{items,total}`) |
 | `PATCH /v1/agents/{id}/tickets/{tid}` | đổi trạng thái ticket |
-| `GET /v1/business/agents/{id}/quality` | tab Trợ lý còn yếu |
-| `POST /v1/agents/{id}/chat` | tab Chat thử (SSE, qua route riêng) |
+| `GET /v1/conversations/facets` | đếm theo kênh cho chip lọc |
+| `GET /v1/business/agents/{id}/quality?days&platforms` | tab Trợ lý còn yếu (`platforms` lặp lại cho từng nguồn) |
+| `GET /v1/agents/{id}` | đọc cấu hình agent |
+| `PUT /v1/agents/{id}` | ghi luật vá (PUT, backend không có PATCH) |
+| `GET /v1/agents/{id}/channels` | kênh của agent + nấc trả lời |
+| `POST /v1/agents/{id}/channels/{integrationId}/auto-reply` | đổi nấc kênh (`{mode}`; vẫn nhận `{enabled}` cũ) |
+| `GET /v1/users/me/principal` | vai + quyền của tài khoản đang đăng nhập |
+| `POST /v1/agents/{id}/chat` | tab Chat thử (SSE, qua route riêng — KHÔNG qua proxy) |
 
 Xác thực: **`Authorization: Bearer <PHENAU_API_KEY>`**, do BFF proxy gắn ở server.
 Trình duyệt không cầm key, cũng không khai workspace — key đã gắn cứng tenant + agent.

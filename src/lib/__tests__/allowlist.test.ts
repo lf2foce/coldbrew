@@ -6,6 +6,7 @@
  */
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { readFileSync } from "node:fs";
 import { ALLOWLIST, ALLOWLIST_LEN, khop } from "../allowlist.ts";
 
 test("đường trong danh sách thì mở", () => {
@@ -50,7 +51,27 @@ test("đoạn rỗng không được coi là tham số hợp lệ", () => {
   assert.equal(khop("GET", "/v1/conversations//messages"), false);
 });
 
-test("số đường mở khớp con số ghi trong README", () => {
-  assert.equal(ALLOWLIST_LEN, 21, "đổi allowlist thì phải sửa cả bảng trong README");
+test("mọi đường mở đều có trong bảng README", () => {
+  // Bản trước ghim con số 21 và bảo "khớp con số ghi trong README" — nhưng README
+  // KHÔNG có con số nào để khớp, nên nó chỉ bắt người ta sửa 21 thành 22 rồi thôi.
+  // Bảng đã âm thầm lệch mất 7 đường. Giờ đối chiếu THẲNG với bảng: mở thêm cửa mà
+  // không ghi vào tài liệu là đỏ.
+  const md = readFileSync(new URL("../../../README.md", import.meta.url), "utf8");
+  const trongDoc = new Set<string>();
+  for (const dong of md.split("\n")) {
+    const m = dong.match(/^\| `(GET|POST|PUT|PATCH|DELETE) ([^`?]+)/);
+    if (!m) continue;
+    // Bảng markdown escape dấu ống thành `\|`; không gỡ thì tách nhánh ra chuỗi
+    // còn dính dấu chéo ở đuôi và không khớp được với allowlist.
+    const [, method, duongThô] = [m[0], m[1], m[2].replace(/\\\|/g, "|")];
+    // `{a|b|c}` = một dòng gộp nhiều đường; tách ra cho khớp allowlist.
+    const nhanh = duongThô.match(/\{([^}]*\|[^}]*)\}/);
+    const banSao = nhanh ? nhanh[1].split("|").map((x) => duongThô.replace(nhanh[0], x)) : [duongThô];
+    for (const d of banSao) trongDoc.add(`${method} ${d.trim().replace(/\{[^}]*\}/g, "*")}`);
+  }
+  const thieu = ALLOWLIST.map(([m, p]) => `${m} ${p.replace(/:[^/]+/g, "*")}`).filter(
+    (k) => !trongDoc.has(k),
+  );
+  assert.deepEqual(thieu, [], "đường mở trong proxy nhưng chưa ghi vào bảng README");
   assert.equal(ALLOWLIST.length, ALLOWLIST_LEN);
 });

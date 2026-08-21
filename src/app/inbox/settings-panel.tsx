@@ -8,10 +8,14 @@
  * được trợ lý đang ở chế độ nào, và nó cũng không đổi hành vi với khách sẽ
  * nhắn ngày mai.
  *
- * Mặc định thật nằm ở `integration.config_json.runtime.auto_reply_enabled`.
+ * Mặc định thật nằm ở `integration.config_json.runtime.reply_mode` — BA nấc:
+ * tự gửi / soạn nháp / im hẳn. Cờ `auto_reply_enabled` cũ vẫn được ghi kèm cho
+ * client đời trước, nhưng nó không phân biệt được nháp với im hẳn (cả hai đều
+ * false) nên ĐỪNG đọc nó để hiện trạng thái.
+ *
  * `resolve_effective_reply_mode` đọc theo thứ tự: ghi đè của TỪNG hội thoại →
- * nếu không có thì rơi về cờ của KÊNH. Nên màn này hiện trạng thái từng kênh
- * dưới dạng chọn một-trong-hai, đọc phát biết ngay.
+ * nếu không có thì rơi về nấc của KÊNH. Nên màn này hiện nấc từng kênh dưới dạng
+ * chọn một-trong-ba, đọc phát biết ngay.
  *
  * Ghi đè cho một hội thoại riêng vẫn nằm ở tab Hộp thư — hai tầng khác nhau,
  * đừng trộn.
@@ -21,22 +25,19 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { AGENT_ID, BRAND } from "@/lib/brand";
 import { MOCK } from "@/lib/mock";
 import {
+  NHAN_NGUON,
   HOTFIX_MAX_CHARS,
+  REPLY_MODES,
+  nacCuaKenh,
   type AgentDetail,
   type Kenh,
+  NHAN_QUYEN,
+  NHAN_VAI,
+  type Principal,
   type PromptHotfix,
+  type ReplyMode,
 } from "@/lib/types";
 import { makeApi } from "@/lib/api";
-
-const PLATFORM_LABEL: Record<string, string> = {
-  facebook: "Facebook",
-  instagram: "Instagram",
-  zalo: "Zalo OA",
-  lark: "Lark",
-  telegram: "Telegram",
-  web: "Nội bộ",
-  web_public: "Web public",
-};
 
 
 /** true / vắng mặt = trợ lý tự trả lời (mặc định của backend). */
@@ -91,6 +92,7 @@ export function SettingsPanel() {
   const [savingHotfix, setSavingHotfix] = useState(false);
   const [hotfixMsg, setHotfixMsg] = useState<string | null>(null);
 
+  const [ai, setAi] = useState<Principal | null>(null);
   const [kenh, setKenh] = useState<Kenh[] | null>(null);
   const [kenhLoi, setKenhLoi] = useState<string | null>(null);
   const [dangLuuKenh, setDangLuuKenh] = useState<string | null>(null);
@@ -110,16 +112,29 @@ export function SettingsPanel() {
     void loadKenh();
   }, [loadKenh]);
 
-  const doiAutoReply = useCallback(
-    async (k: Kenh, bat: boolean) => {
+  useEffect(() => {
+    if (MOCK) return;
+    // Hỏng thì bỏ qua trong im lặng: đây là thông tin để ĐỌC, không chặn thao tác
+    // nào. Bày một băng đỏ ở màn Cài đặt vì không lấy được vai thì phiền hơn là ích.
+    void api<Principal>("/users/me/principal").then(setAi).catch(() => {});
+  }, [api]);
+
+  const doiNacKenh = useCallback(
+    async (k: Kenh, nac: Exclude<ReplyMode, null>) => {
       setDangLuuKenh(k.id);
-      // Đổi ngay trên màn hình rồi mới gọi API: công tắc phải nhúc nhích tức thì,
-      // không thì người ta bấm lại lần nữa vì tưởng hụt.
-      setKenh((p) => p?.map((x) => (x.id === k.id ? { ...x, auto_reply_enabled: bat } : x)) ?? p);
+      // Đổi ngay trên màn hình rồi mới gọi API: nấc phải nhúc nhích tức thì, không
+      // thì người ta bấm lại lần nữa vì tưởng hụt.
+      setKenh((p) =>
+        p?.map((x) =>
+          x.id === k.id ? { ...x, reply_mode: nac, auto_reply_enabled: nac === "auto_send" } : x,
+        ) ?? p,
+      );
       try {
+        // Gửi `mode` chứ không `enabled`: boolean không diễn đạt được nấc "im hẳn".
+        // Đường vẫn là .../auto-reply — backend giữ nguyên URL và nhận cả hai dạng.
         await api(`/agents/${AGENT_ID}/channels/${k.id}/auto-reply`, {
           method: "POST",
-          body: JSON.stringify({ enabled: bat }),
+          body: JSON.stringify({ mode: nac }),
         });
       } catch (e) {
         // Hỏng thì đọc lại trạng thái THẬT, đừng đoán: người trực cần biết chính
@@ -219,7 +234,7 @@ export function SettingsPanel() {
                       {k.label}
                     </p>
                     <p className="text-[12.5px]" style={{ color: "var(--wa-text-soft)" }}>
-                      {PLATFORM_LABEL[k.platform] ?? k.platform}
+                      {NHAN_NGUON[k.platform] ?? k.platform}
                       {k.editable ? "" : " · chỉ xem, không đổi được từ đây"}
                     </p>
                   </div>
@@ -229,15 +244,17 @@ export function SettingsPanel() {
                       disabled={dangLuuKenh === k.id}
                       className="shrink-0 rounded-full px-3 py-[6px] text-[13px] font-medium transition disabled:opacity-50"
                       style={
-                        k.auto_reply_enabled
+                        nacCuaKenh(k) === "auto_send"
                           ? { background: "var(--wa-teal)", color: "#fff" }
-                          : { background: "var(--wa-panel-head)", color: "var(--wa-text)" }
+                          : nacCuaKenh(k) === "off"
+                            // Im hẳn là trạng thái người trực PHẢI nhận ra ngay: khách
+                            // nhắn vào kênh này sẽ không có ai/cái gì trả lời cho tới
+                            // khi nhân viên tự gõ. Để nó xám như nấc nháp thì lẫn.
+                            ? { background: "#f4e3e1", color: "#a33a33" }
+                            : { background: "var(--wa-panel-head)", color: "var(--wa-text)" }
                       }
                     >
-                      {/* KHÔNG dùng chữ "Tắt": ở mức kênh, tắt tự-trả-lời nghĩa là trợ
-                          lý chuyển sang soạn nháp chờ duyệt, chứ không im lặng. Gọi là
-                          "tắt" thì người trực tưởng khách không được phản hồi gì. */}
-                      {k.auto_reply_enabled ? "Tự động trả lời" : "Soạn nháp chờ duyệt"}
+                      {REPLY_MODES.find((m) => m.value === nacCuaKenh(k))?.label}
                     </button>
                   )}
                 </div>
@@ -300,9 +317,42 @@ export function SettingsPanel() {
             Tài khoản
           </h3>
           <div
-            className="flex items-center justify-end gap-3 rounded-xl border p-3"
+            className="rounded-xl border p-3"
             style={{ borderColor: "var(--wa-border)" }}
           >
+            {ai && (
+              <div className="mb-3">
+                <p className="text-[14px]" style={{ color: "var(--wa-text)" }}>
+                  {/* Nói rõ đây là quyền của KHOÁ, không phải của cá nhân người trực.
+                      Ghi trống không thì ai đăng nhập cũng tưởng mình bị giới hạn
+                      riêng, rồi đi hỏi quản lý xin nâng quyền cho tài khoản mình. */}
+                  {ai.auth_source === "app_key" ? "Ứng dụng này kết nối với quyền" : "Bạn đang đăng nhập với quyền"}{" "}
+                  <strong>{NHAN_VAI[ai.role ?? ""] ?? ai.role ?? "không rõ"}</strong>
+                </p>
+                {ai.scopes.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {ai.scopes.map((q) => (
+                      <span
+                        key={q}
+                        className="rounded-full px-2.5 py-[3px] text-[12px]"
+                        style={{ background: "var(--wa-panel-head)", color: "var(--wa-text-soft)" }}
+                        title={q}
+                      >
+                        {NHAN_QUYEN[q] ?? q}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <p className="mt-2 text-[12px]" style={{ color: "var(--wa-text-soft)" }}>
+                  {/* Mô tả phải khớp cái người dùng THẤY: thiếu quyền thì phần đó báo lỗi
+                      đỏ (403), chứ không lặng lẽ biến mất. Viết "không hiện lên" thì người
+                      gặp băng đỏ sẽ đi tìm lỗi kỹ thuật thay vì hiểu ra là thiếu quyền. */}
+                  Phần nào không có quyền tương ứng sẽ báo lỗi khi tải. Cần thêm quyền thì
+                  báo bên cấp khoá.
+                </p>
+              </div>
+            )}
+            <div className="flex items-center justify-end gap-3">
             <button
               onClick={() => {
                 void fetch("/api/logout", { method: "POST" }).then(() => {
@@ -314,6 +364,7 @@ export function SettingsPanel() {
             >
               Đăng xuất
             </button>
+            </div>
           </div>
         </section>
 
@@ -354,18 +405,15 @@ export function SettingsPanel() {
             <p className="px-4 pb-2 text-[12.5px]" style={{ color: "var(--wa-text-soft)" }}>
               Áp cho mọi khách nhắn vào kênh này.
             </p>
-            {([
-              [true, "Tự động trả lời", "Trợ lý trả lời khách ngay, không cần duyệt"],
-              [false, "Soạn nháp chờ duyệt", "Trợ lý soạn sẵn, nhân viên bấm gửi"],
-            ] as [boolean, string, string][]).map(([bat, nhan, mota]) => {
-              const on = dangChonKenh.auto_reply_enabled === bat;
+            {REPLY_MODES.map((m) => {
+              const on = nacCuaKenh(dangChonKenh) === m.value;
               return (
                 <button
-                  key={String(bat)}
+                  key={m.value}
                   onClick={() => {
                     const k = dangChonKenh;
                     setDangChonKenh(null);
-                    if (k.auto_reply_enabled !== bat) void doiAutoReply(k, bat);
+                    if (nacCuaKenh(k) !== m.value) void doiNacKenh(k, m.value);
                   }}
                   className="flex w-full items-start gap-3 rounded-xl px-4 py-3 text-left transition hover:bg-black/[0.03]"
                 >
@@ -376,19 +424,17 @@ export function SettingsPanel() {
                     {on && <span className="h-[9px] w-[9px] rounded-full" style={{ background: "var(--wa-teal)" }} />}
                   </span>
                   <span>
-                    <span className="block text-[14.5px]" style={{ color: "var(--wa-text)" }}>{nhan}</span>
-                    <span className="block text-[12.5px]" style={{ color: "var(--wa-text-soft)" }}>{mota}</span>
+                    <span className="block text-[14.5px]" style={{ color: "var(--wa-text)" }}>{m.label}</span>
+                    <span className="block text-[12.5px]" style={{ color: "var(--wa-text-soft)" }}>{m.hint}</span>
                   </span>
                 </button>
               );
             })}
-            {/* Mức kênh CHỈ có hai nấc: backend lưu `runtime.auto_reply_enabled` là
-                boolean. Nấc thứ ba — trợ lý im hẳn — chỉ tồn tại ở mức hội thoại
-                (`reply_mode_override: auto_send | advisor | off`). Nói thẳng ra đây,
-                không thì người trực đi tìm mãi một lựa chọn không có. */}
+            {/* Nấc kênh là MẶC ĐỊNH; từng hội thoại vẫn đè riêng được ở tab Hộp thư.
+                Nói ra đây để người trực khỏi tưởng đổi ở kênh là quét sạch mọi ghi đè
+                đã đặt tay cho khách VIP. */}
             <p className="px-4 pb-3 pt-1 text-[12.5px]" style={{ color: "var(--wa-text-soft)" }}>
-              Muốn trợ lý <strong>im hẳn</strong> thì đặt riêng cho từng hội thoại ở tab Hộp thư —
-              mức kênh không có lựa chọn đó.
+              Đây là mặc định cho cả kênh. Hội thoại nào đã đặt riêng thì vẫn giữ nguyên.
             </p>
           </div>
         </div>

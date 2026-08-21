@@ -26,7 +26,8 @@ import { MOCK } from "@/lib/mock";
 import { Composer } from "@/components/composer";
 import { Avatar, DotsIcon, IconBtn } from "@/components/ui";
 import { makeApi, makeStreamApi } from "@/lib/api";
-import type { Conversation, Message } from "@/lib/types";
+import { MessageContent } from "@/components/message-content";
+import type { Citation, Conversation, Message } from "@/lib/types";
 
 function timeOnly(iso: string): string {
   return new Date(iso).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
@@ -126,6 +127,14 @@ export function TestPanel() {
         if (ev.type === "delta") {
           acc += String(ev.content ?? "");
           setMessages((p) => p.map((m) => (m.id === replyId ? { ...m, content: acc } : m)));
+        } else if (ev.type === "citations_updated") {
+          // Nguồn chỉ biết được SAU khi trả lời xong, nên nó tới ở cuối luồng chứ
+          // không đi kèm từng mảnh chữ. Gắn vào đúng bong bóng đang chạy: chip đang
+          // xám sẽ đổi sang xanh và bấm được, không phải tải lại trang.
+          const cs = (ev.citations ?? []) as Citation[];
+          setMessages((p) =>
+            p.map((m) => (m.id === replyId ? { ...m, metadata: { citations: cs } } : m)),
+          );
         } else if (ev.type === "conversation" && ev.conversation_id) {
           newConvId = String(ev.conversation_id);
         }
@@ -263,9 +272,9 @@ export function TestPanel() {
                   style={{ background: mine ? "var(--wa-out)" : "var(--wa-panel)" }}
                 >
                   {m.content ? (
-                    <p className="whitespace-pre-wrap text-[14.2px] leading-[19px]" style={{ color: "var(--wa-text)" }}>
-                      {m.content}
-                    </p>
+                    <div className="text-[14.2px] leading-[19px]" style={{ color: "var(--wa-text)" }}>
+                      <MessageContent content={m.content} citations={m.metadata?.citations} />
+                    </div>
                   ) : (
                     // Bong bóng đã dựng nhưng chữ chưa tới: ba chấm nhấp nháy NGAY
                     // TRONG bong bóng. Làm chỉ báo thành khối riêng thì lúc chữ bắt
