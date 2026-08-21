@@ -185,23 +185,19 @@ export function QualityPanel({ onOpenConversation }: { onOpenConversation: (id: 
 
         {data && (
           <>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2">
               <Stat value={String(data.total_questions)} label="Câu khách hỏi" />
-              {/* null = CHƯA ĐO ĐƯỢC, khác hẳn 0%. Backend chỉ tính tỉ lệ từ lúc bắt
-                  đầu đếm được mẫu số (số lượt thực sự truy vấn tri thức); trước mốc đó
-                  không có gì để chia. Hiện "—" chứ đừng để `null * 100` thành 0% —
-                  người đọc sẽ tưởng trợ lý đang hoàn hảo. */}
-              <Stat
-                value={data.fallback_rate === null || data.fallback_rate === undefined
-                  ? "—"
-                  : `${Math.round(data.fallback_rate * 100)}%`}
-                label={
-                  data.fallback_rate === null || data.fallback_rate === undefined
-                    ? "Tỉ lệ không đáp được · đang gom số liệu"
-                    : `Tỉ lệ không đáp được · ${data.kb_query_count ?? 0} lượt tra cứu`
-                }
-                tone={(data.fallback_rate ?? 0) > 0.1 ? "#a33a33" : undefined}
-              />
+              {/* Bỏ thẻ "Tỉ lệ không đáp được".
+                  Nó là kb_gap / (kb_ok + kb_gap) trong cửa sổ đang chọn. Ba lý do bỏ:
+
+                  1. Mẫu số là SỐ LƯỢT TRA CỨU tri thức, không phải số câu khách hỏi —
+                     hai con số nằm cạnh nhau trên cùng hàng thẻ nên ai cũng đọc thành
+                     "trong 163 câu thì trượt 100%", sai hoàn toàn.
+                  2. Mẫu số thường rất nhỏ (2–3 lượt), nên nhảy 0% ↔ 100% liên tục.
+                  3. Tử số phụ thuộc ngưỡng 0.72 chưa hiệu chỉnh lần nào.
+
+                  "Số câu căn cứ yếu" ngay bên cạnh nói đúng phần dùng được: một CON SỐ
+                  đếm được, bấm vào ra danh sách câu cần bổ sung tài liệu. */}
               {/* "Số câu căn cứ yếu" chứ không phải "Thiếu trong tài liệu": con số này
                   đếm số LƯỢT TRUY VẤN mà nguồn khớp nhất có điểm dưới ngưỡng 0.72, chứ
                   không đếm tài liệu còn thiếu. Nhiều lượt trong đó vẫn trả lời đúng và

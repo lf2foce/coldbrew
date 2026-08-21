@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { EMOJI } from "@/lib/emoji";
+import { caoOSoan } from "@/lib/o-soan";
 
 /**
  * Ô soạn tin theo WhatsApp bản mới: nút `+` NGOÀI bên trái, ô nhập bo tròn với
@@ -32,30 +33,33 @@ const SO_DONG_TOI_DA = 4;
  */
 type BoDoc = { start: () => void; stop: () => void; abort: () => void } & Record<string, unknown>;
 
-function dungDocChinhTa(onChu: (chu: string) => void) {
+function dungDocChinhTa(onVanBan: (chu: string) => void, onBatDau: () => void) {
   const [dangNghe, setDangNghe] = useState(false);
   const [hoTro, setHoTro] = useState(false);
   const boRef = useRef<BoDoc | null>(null);
-  const onChuRef = useRef(onChu);
-  onChuRef.current = onChu;
+  const cbRef = useRef({ onVanBan, onBatDau });
+  cbRef.current = { onVanBan, onBatDau };
 
   useEffect(() => {
     const w = window as unknown as Record<string, unknown>;
-    const Bo = (w.SpeechRecognition ?? w.webkitSpeechRecognition) as
-      | (new () => BoDoc)
-      | undefined;
+    const Bo = (w.SpeechRecognition ?? w.webkitSpeechRecognition) as (new () => BoDoc) | undefined;
     if (!Bo) return;
     setHoTro(true);
     const bo = new Bo();
     bo.lang = "vi-VN";
-    // `continuous` để nói được nhiều câu; `interim` để chữ hiện dần thay vì đợi im
-    // hẳn mới đổ ra một cục — người nói cần thấy máy đang nghe đúng hay sai.
-    bo.continuous = true;
-    bo.interimResults = false;
-    bo.onresult = (e: { results: ArrayLike<ArrayLike<{ transcript: string }>>; resultIndex: number }) => {
+    // `continuous = false`: Safari (kể cả trên iPhone) thường KHÔNG phát `onresult`
+    // khi bật continuous — nói xong chẳng thấy chữ đâu. Tắt đi thì nó chốt kết quả
+    // sau mỗi quãng im lặng, đúng nhịp người ta đọc một câu rồi ngừng.
+    bo.continuous = false;
+    // Hiện chữ dần trong lúc nói, thay vì im hết rồi mới đổ ra một cục — người nói
+    // cần thấy máy nghe đúng hay sai để nói lại ngay.
+    bo.interimResults = true;
+    bo.onresult = (e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => {
+      // Ghép TỪ ĐẦU phiên nghe mỗi lần, không nối thêm từng mảnh: bản trước nối dồn
+      // nên mảnh tạm thời bị cộng lại nhiều lần, ra câu lặp chữ.
       let chu = "";
-      for (let i = e.resultIndex; i < e.results.length; i++) chu += e.results[i][0].transcript;
-      if (chu.trim()) onChuRef.current(chu.trim());
+      for (let i = 0; i < e.results.length; i++) chu += e.results[i][0].transcript;
+      cbRef.current.onVanBan(chu.trim());
     };
     bo.onend = () => setDangNghe(false);
     bo.onerror = () => setDangNghe(false);
@@ -78,6 +82,7 @@ function dungDocChinhTa(onChu: (chu: string) => void) {
       setDangNghe(false);
       return;
     }
+    cbRef.current.onBatDau();
     try {
       bo.start();
       setDangNghe(true);
@@ -129,18 +134,22 @@ export function Composer({
     [value, onChange],
   );
 
+  // Chữ đã có TRƯỚC khi bấm mic. Mỗi lần máy nghe ra thêm, ghép lại từ nền này —
+  // không nối thẳng vào `value`, vì kết quả tạm thời đổi liên tục sẽ cộng dồn.
+  const nenRef = useRef("");
   const doc = dungDocChinhTa(
     useCallback(
       (chu: string) => {
-        // Nối vào cuối, tự thêm dấu cách nếu đang có chữ.
-        onChange(value ? `${value.replace(/\s+$/, "")} ${chu}` : chu);
+        const nen = nenRef.current.replace(/\s+$/, "");
+        onChange(nen ? `${nen} ${chu}` : chu);
       },
-      [value, onChange],
+      [onChange],
     ),
+    useCallback(() => {
+      nenRef.current = value;
+    }, [value]),
   );
 
-  // Đo lại chiều cao mỗi lần nội dung đổi. `useLayoutEffect` chứ không `useEffect`:
-  // đo sau khi vẽ thì người dùng thấy ô giật một nhịp mỗi lần gõ xuống dòng.
   useEffect(() => {
     if (!moEmoji) return;
     const bam = (e: MouseEvent) => {
@@ -155,15 +164,29 @@ export function Composer({
     };
   }, [moEmoji]);
 
-  useLayoutEffect(() => {
+  // Đo lại chiều cao. `useLayoutEffect` chứ không `useEffect`: đo sau khi vẽ thì người
+  // dùng thấy ô giật một nhịp mỗi lần gõ xuống dòng.
+  const doLai = useCallback(() => {
     const o = oTrong.current;
     if (!o) return;
     // Về 'auto' trước rồi mới đo: giữ nguyên chiều cao cũ thì scrollHeight không bao
     // giờ nhỏ lại, nên xoá bớt chữ mà ô vẫn cao như cũ.
     o.style.height = "auto";
     const doDong = parseFloat(getComputedStyle(o).lineHeight) || 20;
-    o.style.height = `${Math.min(o.scrollHeight, doDong * SO_DONG_TOI_DA)}px`;
-  }, [value]);
+    o.style.height = `${caoOSoan(o.scrollHeight, doDong, SO_DONG_TOI_DA)}px`;
+  }, []);
+
+  useLayoutEffect(doLai, [value, doLai]);
+
+  // Đo lại khi ô ĐỔI KÍCH THƯỚC — gồm cả lúc từ ẩn chuyển sang hiện. Chỉ trông vào
+  // `value` là không đủ: nội dung không đổi thì chẳng ai đo lại.
+  useLayoutEffect(() => {
+    const o = oTrong.current;
+    if (!o || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(doLai);
+    ro.observe(o);
+    return () => ro.disconnect();
+  }, [doLai]);
 
   return (
     <form
@@ -249,10 +272,11 @@ export function Composer({
             className="flex h-[40px] w-[40px] shrink-0 items-center justify-center rounded-full text-white transition"
             style={{ background: doc.dangNghe ? "#a33a33" : "var(--wa-green)" }}
           >
-            {/* Đang nghe thì đổi thành ô vuông "dừng" và nhấp nháy — nút mic đứng yên
-                không cho biết máy có đang thu hay không, mà micro bật lén là chuyện lớn. */}
+            {/* Đang nghe thì đổi thành ô vuông "dừng" — ĐỔI ICON là đủ, không cần nhấp
+                nháy. Chuyển động lặp vô hạn ở góc màn hình kéo mắt liên tục trong lúc
+                người ta đang đọc tin. */}
             {doc.dangNghe ? (
-              <span className="wa-dot h-[13px] w-[13px] rounded-[3px] bg-white" />
+              <span className="h-[13px] w-[13px] rounded-[3px] bg-white" />
             ) : (
               <svg viewBox="0 0 24 24" className="h-[23px] w-[23px]" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round">
                 <rect x="9" y="3" width="6" height="11" rx="3" />
