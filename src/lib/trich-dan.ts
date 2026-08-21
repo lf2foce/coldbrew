@@ -178,6 +178,7 @@ export function moTaNguon(c: Citation | undefined, so: number): string {
   return p.join(" · ");
 }
 
+/** Link mở tệp cho một nguồn. Ưu tiên tệp, không có thì thư mục chứa nó. */
 export function lienKetNguon(c: Citation | undefined): string | null {
   return c?.source_links?.file_url || c?.source_links?.folder_url || null;
 }

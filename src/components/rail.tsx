@@ -29,7 +29,7 @@ const TOP_ITEMS: { key: RailTab; label: string; icon: React.ReactNode }[] = [
   },
   {
     key: "quality",
-    label: "Trợ lý còn yếu ở đâu",
+    label: "Quản lý thông tin",
     icon: (
       <svg viewBox="0 0 24 24" className="h-[21px] w-[21px]" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="12" cy="12" r="4" />

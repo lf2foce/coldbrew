@@ -114,7 +114,7 @@ export function QualityPanel({ onOpenConversation }: { onOpenConversation: (id: 
     <div className="flex h-full flex-col bg-[var(--wa-panel)]">
       <header className="flex h-[60px] shrink-0 items-center justify-between px-4">
         <h2 className="text-[20px] font-bold" style={{ color: "var(--wa-text)" }}>
-          Trợ lý còn yếu ở đâu
+          Quản lý thông tin
         </h2>
       </header>
 

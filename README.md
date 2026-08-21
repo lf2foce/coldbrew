@@ -86,7 +86,7 @@ Backend đổi hình dạng phản hồi ở bất kỳ dòng nào trong bảng 
 | `GET /v1/conversations?agent_id&scope&limit&offset` | danh sách hộp thư |
 | `GET /v1/conversations/{id}` | mở một hội thoại |
 | `GET /v1/conversations/{id}/messages` | đọc tin |
-| `GET /v1/conversations/{id}/messages/{msgId}` | nhảy tới đúng một tin (deep-link từ tab Trợ lý còn yếu) |
+| `GET /v1/conversations/{id}/messages/{msgId}` | nhảy tới đúng một tin (deep-link từ tab Quản lý thông tin) |
 | `POST /v1/conversations/{id}/reply` | người thật trả lời |
 | `POST /v1/conversations/{id}/reply-mode` | bật/tắt bot cho hội thoại |
 | `POST /v1/conversations/{id}/mark-read` | đánh dấu đã đọc |
@@ -97,7 +97,7 @@ Backend đổi hình dạng phản hồi ở bất kỳ dòng nào trong bảng 
 | `GET /v1/agents/{id}/tickets` | tab Yêu cầu khách (envelope `{items,total}`) |
 | `PATCH /v1/agents/{id}/tickets/{tid}` | đổi trạng thái ticket |
 | `GET /v1/conversations/facets` | đếm theo kênh cho chip lọc |
-| `GET /v1/business/agents/{id}/quality?days&platforms` | tab Trợ lý còn yếu (`platforms` lặp lại cho từng nguồn) |
+| `GET /v1/business/agents/{id}/quality?days&platforms` | tab Quản lý thông tin (`platforms` lặp lại cho từng nguồn) |
 | `GET /v1/agents/{id}` | đọc cấu hình agent |
 | `PUT /v1/agents/{id}` | ghi luật vá (PUT, backend không có PATCH) |
 | `GET /v1/agents/{id}/channels` | kênh của agent + nấc trả lời |
@@ -115,7 +115,7 @@ Nghĩa là **không còn bí mật nào trong bundle tải về máy khách**.
 |---|---|
 | Hộp thư | `/conversations?scope=all` — hội thoại khách |
 | Yêu cầu khách | `/agents/{id}/tickets` — kanban khi màn ≥1100px |
-| Trợ lý còn yếu | `/business/agents/{id}/quality` — câu hỏi trượt, bấm để mở hội thoại |
+| Quản lý thông tin | `/business/agents/{id}/quality` — câu hỏi trượt, bấm để mở hội thoại |
 | Chat thử | `/conversations?scope=mine` + `/agents/{id}/chat` |
 
 Cài đặt nằm ở đáy rail.

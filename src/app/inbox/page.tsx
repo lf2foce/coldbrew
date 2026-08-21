@@ -97,6 +97,11 @@ export default function InboxPage() {
   const [messages, setMessages] = useState<Message[] | null>(null);
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [composer, setComposer] = useState("");
+  const oSoan = useRef<HTMLInputElement | null>(null);
+  // Đang sửa nháp NÀO. `composer` dùng chung cho cả ô soạn lẫn mọi nháp, nên thiếu
+  // biến này thì bấm "Sửa" ở nháp A rồi bấm "Duyệt" ở nháp B sẽ gửi chữ của A thành
+  // bản sửa của B — gửi thẳng cho khách, không có bước xác nhận nào.
+  const [dangSua, setDangSua] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   // Số đếm theo kênh, lấy từ /conversations/facets — đếm trên TOÀN BỘ hội thoại
   // chứ không phải trang đang tải, nên chip không nói dối khi khách có nhiều tin.
@@ -180,6 +185,13 @@ export default function InboxPage() {
     setActiveId(id);
     setMessages(null);
     setDrafts([]);
+    // Chữ do bấm "Sửa" điền vào thuộc về nháp của hội thoại VỪA RỜI — mang sang hội
+    // thoại khác rồi bấm gửi là gửi nhầm cho khách khác. Chữ người TỰ GÕ thì giữ:
+    // rời đi xem cái gì rồi quay lại mà mất bài đang soạn cũng tệ không kém.
+    setDangSua((cu) => {
+      if (cu) setComposer("");
+      return null;
+    });
     if (MOCK) {
       setMessages(MOCK_MESSAGES[id] ?? []);
       setDrafts(MOCK_DRAFTS[id] ?? []);
@@ -187,7 +199,7 @@ export default function InboxPage() {
     }
     try {
       // NẠP BÙ hội thoại chưa có trong danh sách. Danh sách chỉ tải 50 cái mới nhất,
-      // trong khi tab "Trợ lý còn yếu" trỏ tới hội thoại tính trong 30 ngày — đo thật
+      // trong khi tab "Quản lý thông tin" trỏ tới hội thoại tính trong 30 ngày — đo thật
       // ngày 21/08: 20/20 hội thoại trong danh sách yếu đều NẰM NGOÀI 50 cái đó. Không
       // nạp bù thì `active` (tìm bằng convs.find) ra null, và khung phải hiện "Chọn một
       // hội thoại" dù tin đã tải xong — bấm "Mở hội thoại" tưởng như không có tác dụng.
@@ -361,12 +373,14 @@ export default function InboxPage() {
   const approveDraft = useCallback(
     async (d: Draft) => {
       if (!activeId) return;
-      const edited = composer.trim();
+      // Đang sửa nháp khác thì KHÔNG mượn chữ đó cho nháp này.
+      const edited = dangSua && dangSua !== d.id ? "" : composer.trim();
       const path = edited
         ? `/conversations/${activeId}/drafts/${d.id}/edit-and-send`
         : `/conversations/${activeId}/drafts/${d.id}/approve`;
       setDrafts((p) => p.filter((x) => x.id !== d.id));
-      setComposer("");
+      if (!dangSua || dangSua === d.id) setComposer("");
+      if (dangSua === d.id) setDangSua(null);
       if (MOCK) {
         setMessages((p) => [
           ...(p ?? []),
@@ -386,13 +400,19 @@ export default function InboxPage() {
         setError(e instanceof Error ? e.message : String(e));
       }
     },
-    [activeId, composer, openConv, api],
+    [activeId, composer, dangSua, openConv, api],
   );
 
   const dismissDraft = useCallback(
     async (d: Draft) => {
       if (!activeId) return;
       setDrafts((p) => p.filter((x) => x.id !== d.id));
+      // Bỏ nháp đang sửa thì dọn luôn ô soạn: để lại đoạn chữ mồ côi thì lần gửi sau
+      // người ta vô tình gửi nguyên bản nháp vừa bỏ.
+      if (dangSua === d.id) {
+        setComposer("");
+        setDangSua(null);
+      }
       if (MOCK) return;
       try {
         await api(`/conversations/${activeId}/drafts/${d.id}/dismiss`, { method: "POST" });
@@ -400,7 +420,7 @@ export default function InboxPage() {
         /* bỏ nháp lỗi thì thôi — không đáng chặn người dùng */
       }
     },
-    [activeId, api],
+    [activeId, dangSua, api],
   );
 
   const sendReply = useCallback(async () => {
@@ -408,6 +428,9 @@ export default function InboxPage() {
     if (!content || !activeId) return;
     setSending(true);
     setComposer("");
+    // Gửi thẳng bằng ô soạn = không còn sửa nháp nào nữa. Không dọn thì nháp cũ vẫn
+    // đeo nhãn "Sửa rồi gửi" trong khi ô soạn đã trống.
+    setDangSua(null);
     const optimistic: Message = {
       id: `tmp-${Date.now()}`,
       role: "human_agent",
@@ -755,7 +778,29 @@ export default function InboxPage() {
                           className="rounded-full px-3 py-[5px] text-[13px] font-medium text-white"
                           style={{ background: "var(--wa-teal)" }}
                         >
-                          {composer.trim() ? "Sửa rồi gửi" : "Duyệt & gửi"}
+                          {(dangSua ? dangSua === d.id : !!composer.trim()) ? "Sửa rồi gửi" : "Duyệt & gửi"}
+                        </button>
+                        {/* Đưa nháp vào ô soạn để sửa tại chỗ. Không có nút này thì
+                            muốn đổi một chữ cũng phải gõ lại cả đoạn — mà nháp thường
+                            dài, nên thực tế người trực bấm "Duyệt & gửi" cho xong rồi
+                            nhắn thêm một tin đính chính. */}
+                        <button
+                          onClick={() => {
+                            setComposer(d.edited_content?.trim() || d.draft_content);
+                            setDangSua(d.id);
+                            // Con trỏ về CUỐI đoạn: người ta sửa nốt câu cuối là chính,
+                            // để ở đầu thì lần nào cũng phải tự bấm xuống dưới.
+                            requestAnimationFrame(() => {
+                              const o = oSoan.current;
+                              if (!o) return;
+                              o.focus();
+                              o.setSelectionRange(o.value.length, o.value.length);
+                            });
+                          }}
+                          className="rounded-full px-3 py-[5px] text-[13px]"
+                          style={{ background: "var(--wa-panel-head)", color: "var(--wa-text)" }}
+                        >
+                          Sửa
                         </button>
                         <button
                           onClick={() => void dismissDraft(d)}
@@ -844,6 +889,7 @@ export default function InboxPage() {
 
               <Composer
                 value={composer}
+                oRef={oSoan}
                 onChange={setComposer}
                 onSend={() => void sendReply()}
                 placeholder={drafts.length ? "Sửa nháp rồi bấm Sửa rồi gửi…" : "Nhập tin nhắn"}

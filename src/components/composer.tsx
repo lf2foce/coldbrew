@@ -14,12 +14,15 @@ export function Composer({
   onSend,
   placeholder,
   disabled,
+  oRef,
 }: {
   value: string;
   onChange: (v: string) => void;
   onSend: () => void;
   placeholder: string;
   disabled?: boolean;
+  /** Để nơi khác đặt con trỏ vào ô soạn — ví dụ bấm "Sửa" ở nháp trợ lý. */
+  oRef?: React.Ref<HTMLInputElement>;
 }) {
   const hasText = value.trim().length > 0;
 
@@ -49,6 +52,7 @@ export function Composer({
         style={{ background: "var(--wa-panel)" }}
       >
         <input
+          ref={oRef}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}

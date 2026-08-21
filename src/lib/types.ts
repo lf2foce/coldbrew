@@ -71,6 +71,9 @@ export type Citation = {
   page?: number | null;
   score?: number | null;
   source_path?: string | null;
+  /** Đoạn văn bản trợ lý thực sự đọc được (backend cắt 500 ký tự đầu). Đây là thứ
+   *  người trực cần nhất: đọc phát biết trợ lý nói đúng hay bịa. */
+  text?: string | null;
   source_links?: { file_url?: string | null; folder_url?: string | null };
   /** Metadata của node embedding. Chứa danh tính TỆP (`file_id` do file_processor
    *  gắn, `drive_file_id`/`source_file_id` do google_drive_sync gắn) — thứ dùng để

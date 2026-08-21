@@ -28,7 +28,7 @@ export const ALLOWLIST: [string, string][] = [
   // ── Yêu cầu khách ─────────────────────────────────────────────────────────
   ["GET",   "/v1/agents/:agent/tickets"],
   ["PATCH", "/v1/agents/:agent/tickets/:ticket"],
-  // ── Trợ lý còn yếu ────────────────────────────────────────────────────────
+  // ── Quản lý thông tin ─────────────────────────────────────────────────────
   ["GET",   "/v1/business/agents/:agent/quality"],
   // ── Cài đặt: đọc agent + ghi luật vá ──────────────────────────────────────
   // PUT chứ không PATCH: agents.py chỉ có @router.put. Bản trước gọi PATCH nên
