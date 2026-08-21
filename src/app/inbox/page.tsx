@@ -63,6 +63,14 @@ function dayLabel(iso: string, now: Date): string {
   return d.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
+/** Tên hiện lên cho một hội thoại. Ưu tiên `display_title` (tên khách đã phân giải)
+ *  rồi mới tới `title` (tên thô nền tảng đặt, thường là "New conversation" và không
+ *  bao giờ đổi). Cùng thứ tự với dashboard chính, để hai màn hình không gọi khác tên
+ *  cùng một người. */
+function tenHoiThoai(c: { display_title?: string | null; title?: string | null }): string {
+  return c.display_title?.trim() || c.title?.trim() || "Khách chưa có tên";
+}
+
 type Filter = "all" | "unread" | `kenh:${string}`;
 
 /** Nhãn tiếng Việt cho kênh. Kênh lạ thì hiện nguyên tên thô — thà thấy
@@ -414,10 +422,10 @@ export default function InboxPage() {
     if (!convs) return null;
     const q = query.trim().toLowerCase();
     let list = convs;
-    if (filter === "unread") list = list.filter((c) => (c.unread ?? 0) > 0 || c.status === "pending");
+    if (filter === "unread") list = list.filter((c) => c.has_unread || c.status === "pending");
     // Khớp TÊN (client) hoặc khớp NỘI DUNG (backend) — thiếu vế thứ hai thì gõ
     // "sổ hồng" ra rỗng dù có hội thoại nhắc tới.
-    if (q) list = list.filter((c) => (c.title || "").toLowerCase().includes(q) || hits.has(c.id));
+    if (q) list = list.filter((c) => tenHoiThoai(c).toLowerCase().includes(q) || hits.has(c.id));
     return list;
   }, [convs, query, filter, hits]);
 
@@ -449,7 +457,7 @@ export default function InboxPage() {
             setTab(t);
             setActiveId(null);
           }}
-          badges={{ chat: convs?.reduce((n, c) => n + (c.unread ?? 0), 0) ?? 0 }}
+          badges={{ chat: convs?.filter((c) => c.has_unread).length ?? 0 }}
         />
 
         {/* ══ Sidebar: chỉ ở tab Chat. Task và Test tự chiếm cả khung phải ══ */}
@@ -551,9 +559,9 @@ export default function InboxPage() {
               </p>
             )}
             {shown?.map((c) => {
-              const name = c.title || "Khách chưa có tên";
+              const name = tenHoiThoai(c);
               const on = c.id === activeId;
-              const unread = c.unread ?? 0;
+              const unread = c.has_unread ? 1 : 0;
               const pv = preview(c);
               return (
                 <button
@@ -609,11 +617,13 @@ export default function InboxPage() {
                       )}
                       {unread > 0 && (
                         <span
-                          className="ml-auto flex h-[20px] min-w-[20px] shrink-0 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold text-white"
+                          // CHẤM chứ không phải SỐ: backend trả `has_unread` là cờ
+                          // đúng/sai, không có số tin chưa đọc. In số "1" cho mọi hội
+                          // thoại là bịa ra một con số mà dữ liệu không hề nói.
+                          className="ml-auto h-[10px] w-[10px] shrink-0 rounded-full"
                           style={{ background: "var(--wa-unread)" }}
-                        >
-                          {unread}
-                        </span>
+                          title="Có tin chưa đọc"
+                        />
                       )}
                     </span>
                   </span>
@@ -670,10 +680,10 @@ export default function InboxPage() {
                 >
                   ←
                 </button>
-                <Avatar size={40} name={active.title || "Khách"} id={active.id} />
+                <Avatar size={40} name={tenHoiThoai(active)} id={active.id} />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[16px]" style={{ color: "var(--wa-text)" }}>
-                    {active.title || "Khách chưa có tên"}
+                    {tenHoiThoai(active)}
                   </span>
                   <span className="block text-[13px]" style={{ color: "var(--wa-text-soft)" }}>
                     {PLATFORM_LABEL[active.platform || "web"] ?? active.platform}

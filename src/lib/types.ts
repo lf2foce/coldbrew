@@ -16,15 +16,22 @@ export const REPLY_MODES: { value: Exclude<ReplyMode, null>; label: string; hint
 
 export type Conversation = {
   id: string;
+  /** Tên THÔ do nền tảng đặt lúc tạo hội thoại — thường là "New conversation" và
+   *  không bao giờ được cập nhật. ĐỪNG hiện trường này. */
   title: string | null;
+  /** Tên khách đã phân giải (từ hồ sơ Facebook/Zalo). Đây mới là thứ hiện lên.
+   *  Bản trước hiện `title` nên phần lớn hội thoại đọc ra "New conversation" —
+   *  người trực không phân biệt nổi khách nào với khách nào. */
+  display_title?: string | null;
   platform: string | null;
   status: string | null;
   message_count: number | null;
   updated_at: string;
   reply_mode_override?: ReplyMode;
-  /** Số tin CHƯA ĐỌC — backend chưa trả trường này; mock có để dựng badge.
-   *  Dữ liệu thật thiếu thì badge không hiện. Đừng suy từ message_count. */
-  unread?: number;
+  /** Backend trả CỜ chưa-đọc, không phải số đếm. Ghi chú cũ bảo "backend chưa trả
+   *  trường này" là sai — nó có, chỉ khác tên và khác kiểu. */
+  has_unread?: boolean;
+  has_pending_draft?: boolean;
 };
 
 export type Message = {

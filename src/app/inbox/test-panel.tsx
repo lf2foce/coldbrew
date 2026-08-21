@@ -42,7 +42,6 @@ export function TestPanel() {
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const endRef = useRef<HTMLDivElement>(null);
 
   const loadSessions = useCallback(async () => {
     if (MOCK || !AGENT_ID) {
@@ -61,10 +60,6 @@ export function TestPanel() {
   useEffect(() => {
     void loadSessions();
   }, [loadSessions]);
-
-  useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, busy]);
 
   const openSession = useCallback(
     async (id: string) => {
@@ -250,13 +245,16 @@ export function TestPanel() {
           </button>
         </header>
 
-        <div className="wa-doodle min-h-0 flex-1 overflow-y-auto px-4 py-3 md:px-[6%]">
+        {/* Cùng cách với tab Hộp thư: `flex-col-reverse` để đáy là vị trí mặc định.
+            Mở phiên thử là thấy ngay lượt gần nhất, không phải ngồi xem màn hình cuộn
+            từ đầu phiên xuống. Khe đáy rộng hơn khe đỉnh vì đáy là chỗ mắt dừng. */}
+        <div className="wa-doodle flex min-h-0 flex-1 flex-col-reverse overflow-y-auto px-4 pb-8 pt-2 md:px-[6%]">
           {messages.length === 0 && (
             <p className="mt-6 text-center text-[14px]" style={{ color: "var(--wa-text-soft)" }}>
               Thử hỏi như một khách hàng để xem trợ lý trả lời thế nào.
             </p>
           )}
-          {messages.map((m) => {
+          {[...messages].reverse().map((m) => {
             const mine = m.role === "user";
             return (
               <div key={m.id} className={`mt-2 flex ${mine ? "justify-end" : "justify-start"}`}>
@@ -289,7 +287,6 @@ export function TestPanel() {
           {error && (
             <p className="mt-2 text-center text-[13px] text-red-700">Lỗi gọi trợ lý: {error}</p>
           )}
-          <div ref={endRef} />
         </div>
 
         <Composer

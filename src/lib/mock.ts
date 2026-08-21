@@ -28,10 +28,10 @@ export type { AgentQuality, AgentTask, Conversation, Draft, Message, Ticket };
 export const MOCK_CONVERSATIONS: Conversation[] = [
   { id: "c1", title: "Chị Mai Anh", platform: "facebook", status: "open", message_count: 8, updated_at: "2026-08-18T09:02:00.000Z" },
   { id: "c2", title: "Anh Đức Thắng", platform: "zalo", status: "open", message_count: 6, updated_at: "2026-08-18T08:20:00.000Z" },
-  { id: "c3", title: "Chị Ngọc Hà", platform: "facebook", status: "pending", message_count: 3, unread: 1, reply_mode_override: "advisor", updated_at: "2026-08-18T07:05:00.000Z" },
+  { id: "c3", title: "Chị Ngọc Hà", platform: "facebook", status: "pending", message_count: 3, has_unread: true, reply_mode_override: "advisor", updated_at: "2026-08-18T07:05:00.000Z" },
   { id: "c4", title: "Anh Quốc Hưng", platform: "web", status: "open", message_count: 7, updated_at: "2026-08-17T16:40:00.000Z" },
   { id: "c5", title: "Chị Thu Trang", platform: "zalo", status: "open", message_count: 4, reply_mode_override: "off", updated_at: "2026-08-17T11:15:00.000Z" },
-  { id: "c6", title: "Khách chưa để lại tên", platform: "facebook", status: "pending", message_count: 2, unread: 2, updated_at: "2026-08-16T20:30:00.000Z" },
+  { id: "c6", title: "Khách chưa để lại tên", platform: "facebook", status: "pending", message_count: 2, has_unread: true, updated_at: "2026-08-16T20:30:00.000Z" },
 ];
 
 export const MOCK_MESSAGES: Record<string, Message[]> = {
