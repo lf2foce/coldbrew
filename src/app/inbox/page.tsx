@@ -693,10 +693,20 @@ export default function InboxPage() {
                   nhất — không cuộn, không nháy, không phụ thuộc hội thoại dài bao nhiêu.
                   Gán scrollTop như bản trước vẫn là CUỘN, chỉ là cuộn nhanh: hội thoại
                   500 tin thì trình duyệt vẫn dựng cả danh sách rồi mới nhảy xuống.
-                  Đổi lại thứ tự trong DOM phải ĐẢO: nháp đứng trước, tin mới trước tin cũ. */}
+                  Đổi lại thứ tự trong DOM phải ĐẢO: nháp đứng trước, tin mới trước tin cũ.
+
+                  Khe ĐÁY (pb-8) rộng hơn khe đỉnh (pt-2) hẳn một bậc: bong bóng cuối
+                  dính sát thanh soạn thì đọc rất tức mắt, nhất là bong bóng dài. Mobile
+                  để paddingTop 72 / paddingBottom 10 trong FlatList inverted, cùng ý đó
+                  (ở inverted thì paddingTop chính là khe đáy).
+
+                  Hội thoại ÍT TIN thì dồn xuống đáy, chừa trống phía trên — đúng chuẩn
+                  chat và giống hệt mobile ("inverted tự canh đáy cho list ngắn"). Mắt và
+                  ô nhập đều ở đáy, nên tin phải ở gần đó; kéo lên đỉnh thì tin mới rơi
+                  vào giữa màn hình, xa chỗ đang gõ. */}
               <div
                 ref={scrollRef}
-                className="wa-doodle flex min-h-0 flex-1 flex-col-reverse overflow-y-auto px-4 py-3 md:px-[6%]"
+                className="wa-doodle flex min-h-0 flex-1 flex-col-reverse overflow-y-auto px-4 pb-8 pt-2 md:px-[6%]"
               >
                 {/* Nháp trợ lý chờ duyệt — thẻ đứt nét để KHÔNG nhầm với tin đã gửi */}
                 {drafts.map((d) => (
