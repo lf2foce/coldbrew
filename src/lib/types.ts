@@ -26,15 +26,31 @@ export const REPLY_MODES: { value: Exclude<ReplyMode, null>; label: string; hint
  */
 export const NHAN_NGUON: Record<string, string> = {
   facebook: "Facebook",
+  // `fb` là biến thể cũ của `facebook`, có thật trong dữ liệu.
+  fb: "Facebook",
   instagram: "Instagram",
-  zalo: "Zalo OA",
+  zalo: "Zalo",
   lark: "Lark",
   telegram: "Telegram",
   phechat: "PheChat",
   web: "Chat thử",
-  web_public: "Widget website",
+  web_public: "Web public",
   external_api: "API ngoài",
 };
+
+/** Nguồn NỘI BỘ — không phải khách hàng.
+ *
+ *  `web` = chat từ dashboard/app nội bộ, tức nhân viên đang thử bot. `phechat` = nhân
+ *  viên nhắn với nhau. Trộn hai thứ này vào hộp thư khách thì người trực phải tự lọc
+ *  bằng mắt mỗi lần mở máy, và tệ hơn: một phiên thử nằm lẫn giữa khách thật rất dễ bị
+ *  trả lời như thể đó là khách.
+ *
+ *  `web_public` KHÔNG nằm đây — đó là widget trên website, khách thật nhắn vào. */
+export const NGUON_NOI_BO = new Set(["web", "phechat"]);
+
+export function laNoiBo(platform: string | null | undefined): boolean {
+  return NGUON_NOI_BO.has((platform ?? "").trim().toLowerCase());
+}
 
 /** Nguồn lạ thì trả về chính mã của nó — thà hiện "tiktok" còn hơn hiện trống trơn
  *  rồi người đọc tưởng hội thoại không có nguồn. */

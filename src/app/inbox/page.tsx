@@ -14,9 +14,10 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AGENT_ID, BRAND } from "@/lib/brand";
+import { AGENT_ID } from "@/lib/brand";
 import { MOCK, MOCK_CONVERSATIONS, MOCK_DRAFTS, MOCK_MESSAGES } from "@/lib/mock";
-import { NHAN_NGUON } from "@/lib/types";
+import { NHAN_NGUON, nhanNguon } from "@/lib/types";
+import { chipMacDinh, dungChip, nguonCanHoi } from "@/lib/hop-thu";
 import type { Conversation, Draft, Message, ReplyMode, SearchHit } from "@/lib/types";
 import { Highlight } from "@/components/highlight";
 import { MessageContent } from "@/components/message-content";
@@ -67,23 +68,6 @@ function tenHoiThoai(c: { display_title?: string | null; title?: string | null }
 
 type Filter = "all" | "unread" | `kenh:${string}`;
 
-/** Nhãn tiếng Việt cho kênh. Kênh lạ thì hiện nguyên tên thô — thà thấy
- *  "external_api" còn hơn gộp hết vào "Khác" rồi không biết đang lọc cái gì. */
-const NHAN_KENH: Record<string, string> = {
-  facebook: "Facebook",
-  fb: "Facebook",
-  instagram: "Instagram",
-  zalo: "Zalo",
-  lark: "Lark",
-  web: "Nội bộ",
-  web_public: "Web public",
-  external_api: "API ngoài",
-};
-
-function nhanKenh(platform: string): string {
-  return NHAN_KENH[platform.trim().toLowerCase()] ?? platform;
-}
-
 /** facebook và fb là cùng một kênh — gộp để không ra hai chip trùng nhau.
  *  Dashboard chính cũng gộp đúng cặp này (getConversationFilterKey). */
 function goKenh(platform: string): string {
@@ -111,7 +95,14 @@ export default function InboxPage() {
   // Khớp theo NỘI DUNG tin (backend trgm) — tách khỏi lọc theo tên ở client.
   const [hits, setHits] = useState<Map<string, { snippet: string; messageId: string }>>(new Map());
   const [searching, setSearching] = useState(false);
-  const [filter, setFilter] = useState<Filter>("all");
+  // "khach" = hộp thư khách hàng (mặc định). "noibo" = chat thử + nhân viên nhắn nhau.
+  // Hai TẬP hội thoại khác hẳn nhau, không phải hai bộ lọc của cùng một danh sách —
+  // nên tách bằng chế độ ở menu ⋮, không nhét thêm một chip nữa vào dãy.
+  const [cheDo, setCheDo] = useState<"khach" | "noibo">("khach");
+  const [moMenu, setMoMenu] = useState(false);
+  // Mặc định Facebook: đó là nơi khách thật nhắn vào nhiều nhất. Mở máy ra thấy ngay
+  // việc phải làm, thay vì một danh sách trộn mọi nguồn.
+  const [filter, setFilter] = useState<Filter>("kenh:facebook");
   const [error, setError] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [tab, setTab] = useState<RailTab>("chat");
@@ -144,16 +135,12 @@ export default function InboxPage() {
       // Lọc kênh ở SERVER, không lọc trên mảng đã tải: chỉ tải 50 hội thoại mới
       // nhất, nên lọc ở client sẽ ra "kênh này không có gì" trong khi thực tế có
       // — chỉ là nằm ngoài 50 cái đó.
-      if (filter.startsWith("kenh:")) {
-        const kenh = filter.slice(5);
-        // facebook lưu cả "facebook" lẫn "fb" tuỳ nguồn ghi — hỏi cả hai.
-        for (const p of kenh === "facebook" ? ["facebook", "fb"] : [kenh]) qs.append("platforms", p);
-      }
+      for (const p of nguonCanHoi(filter, cheDo)) qs.append("platforms", p);
       setConvs(await api<Conversation[]>(`/conversations?${qs}`));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
-  }, [api, filter]);
+  }, [api, filter, cheDo]);
 
   // Số đếm theo kênh: nạp riêng, không đi kèm mỗi lần đổi chip — số này không đổi
   // theo chip đang chọn.
@@ -462,6 +449,42 @@ export default function InboxPage() {
     }
   }, [composer, activeId, api]);
 
+  /** Dãy chip. Thứ tự CÓ CHỦ Ý, không phải theo số lượng:
+   *
+   *    kênh khách thật (Facebook trước) → Chưa đọc → Tất cả → API ngoài
+   *
+   *  Việc thường ngày nằm bên trái, trong tầm ngón cái. "API ngoài" đẩy xuống cuối vì
+   *  nó là luồng hệ thống khác đổ vào, không phải kênh người trực chăm hằng ngày —
+   *  xếp theo số lượng thì nó nhảy lên đầu chỉ vì đông.
+   */
+  const chipDangDung = useMemo(
+    () => dungChip(kenhFacets, cheDo) as [Filter, string][],
+    [kenhFacets, cheDo],
+  );
+
+  // Mặc định Facebook chỉ đúng khi tenant CÓ Facebook. Không có mà vẫn giữ thì mở app
+  // ra là màn trắng, không lời giải thích — người dùng kết luận "app hỏng". Chờ facets
+  // về rồi mới chốt, và chỉ đổi khi người dùng CHƯA tự chọn gì.
+  const daChonChip = useRef(false);
+  useEffect(() => {
+    if (daChonChip.current || !kenhFacets.length) return;
+    setFilter(chipMacDinh(kenhFacets, cheDo) as Filter);
+  }, [kenhFacets, cheDo]);
+
+  useEffect(() => {
+    if (!moMenu) return;
+    const bam = (e: MouseEvent) => {
+      if (!(e.target as HTMLElement)?.closest?.("[data-menu]")) setMoMenu(false);
+    };
+    const phim = (e: KeyboardEvent) => e.key === "Escape" && setMoMenu(false);
+    document.addEventListener("mousedown", bam);
+    document.addEventListener("keydown", phim);
+    return () => {
+      document.removeEventListener("mousedown", bam);
+      document.removeEventListener("keydown", phim);
+    };
+  }, [moMenu]);
+
   const shown = useMemo(() => {
     if (!convs) return null;
     const q = query.trim().toLowerCase();
@@ -520,13 +543,64 @@ export default function InboxPage() {
           style={{ borderColor: "var(--wa-border)" }}
         >
           <header className="flex h-[60px] shrink-0 items-center justify-between px-4">
+            {/* Tiêu đề = TÊN HỘP THƯ đang xem, không phải tên thương hiệu. Cùng nếp
+                với WhatsApp (panel trái ghi "Chats"): chữ ở đây trả lời "danh sách bên
+                dưới là gì", mà đó mới là thứ đổi theo lựa chọn ở menu ⋮. Thương hiệu đã
+                có ở tab trình duyệt và màn đăng nhập, không cần nhắc lại mỗi màn. */}
             <h1 className="truncate text-[20px] font-bold" style={{ color: "var(--wa-text)" }}>
-              {BRAND.name}
+              {cheDo === "noibo" ? "Nội bộ" : "Khách hàng"}
             </h1>
             <div className="flex items-center gap-1">
-              <IconBtn label="Menu">
-                <DotsIcon />
-              </IconBtn>
+              <span className="relative" data-menu>
+                <IconBtn label="Menu" onClick={() => setMoMenu((v) => !v)}>
+                  <DotsIcon />
+                </IconBtn>
+                {moMenu && (
+                  <span
+                    className="absolute right-0 top-[38px] z-40 w-[230px] overflow-hidden rounded-xl border bg-white py-1 shadow-2xl"
+                    style={{ borderColor: "var(--wa-border-strong)" }}
+                    role="menu"
+                  >
+                    {/* Hai TẬP hội thoại, không phải hai bộ lọc. Chat thử và chat nội bộ
+                        nằm lẫn trong hộp thư khách thì người trực phải tự lọc bằng mắt,
+                        và một phiên thử rất dễ bị trả lời như thể đó là khách. */}
+                    {(
+                      [
+                        ["khach", "Khách hàng", "Facebook, Zalo, website, API"],
+                        ["noibo", "Nội bộ", "Chat thử và nhân viên nhắn nhau"],
+                      ] as const
+                    ).map(([gt, nhan, mota]) => (
+                      <button
+                        key={gt}
+                        role="menuitemradio"
+                        aria-checked={cheDo === gt}
+                        onClick={() => {
+                          setCheDo(gt);
+                          setMoMenu(false);
+                          setActiveId(null);
+                          // Chip của chế độ cũ không có ở chế độ mới. Giữ nguyên là danh
+                          // sách rỗng mà không ai hiểu vì sao.
+                          setFilter(chipMacDinh(kenhFacets, gt) as Filter);
+                        }}
+                        className="flex w-full items-start gap-2 px-3 py-2 text-left transition hover:bg-black/[0.04]"
+                      >
+                        <span
+                          className="mt-[5px] h-[7px] w-[7px] shrink-0 rounded-full"
+                          style={{ background: cheDo === gt ? "var(--wa-teal)" : "transparent" }}
+                        />
+                        <span>
+                          <span className="block text-[14px]" style={{ color: "var(--wa-text)" }}>
+                            {nhan}
+                          </span>
+                          <span className="block text-[12px]" style={{ color: "var(--wa-text-soft)" }}>
+                            {mota}
+                          </span>
+                        </span>
+                      </button>
+                    ))}
+                  </span>
+                )}
+              </span>
               <IconBtn label="Soạn tin mới">
                 <svg viewBox="0 0 24 24" className="h-[20px] w-[20px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M12 20h9" />
@@ -563,23 +637,15 @@ export default function InboxPage() {
 
           {/* Dải filter — đặc trưng bản redesign */}
           <div className="flex shrink-0 gap-2 overflow-x-auto px-3 pb-2 pt-1.5">
-            {(
-              [
-                ["all", "Tất cả"],
-                ["unread", "Chưa đọc"],
-                // Chip kênh dựng từ facets, nên khách chỉ thấy kênh mình THẬT SỰ có
-                // — không phải một danh sách cứng đầy kênh chưa bao giờ dùng.
-                ...kenhFacets.map(
-                  ({ platform, count }) =>
-                    [`kenh:${platform}` as Filter, `${nhanKenh(platform)} ${count}`] as [Filter, string],
-                ),
-              ] as [Filter, string][]
-            ).map(([key, label]) => {
+            {chipDangDung.map(([key, label]) => {
               const on = filter === key;
               return (
                 <button
                   key={key}
-                  onClick={() => setFilter(key)}
+                  onClick={() => {
+                    daChonChip.current = true;
+                    setFilter(key);
+                  }}
                   className="shrink-0 whitespace-nowrap rounded-full px-3 py-[5px] text-[13px] transition"
                   style={
                     on
