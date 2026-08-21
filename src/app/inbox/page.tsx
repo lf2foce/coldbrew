@@ -193,6 +193,12 @@ export default function InboxPage() {
       setMessages(await api<Message[]>(`/conversations/${id}/messages`));
       // Nháp hỏng thì vẫn cho đọc tin — đừng để một endpoint phụ chặn cả màn.
       setDrafts(await api<Draft[]>(`/conversations/${id}/drafts`).catch(() => []));
+      // ĐÁNH DẤU ĐÃ ĐỌC ngay khi mở. Trước đây chỉ gọi mark-read lúc có tin mới về
+      // qua SSE, nên hội thoại người trực vừa đọc xong vẫn nằm nguyên trong "Chưa
+      // đọc" — bộ lọc chỉ ra một danh sách không bao giờ vơi, tức là vô dụng.
+      void api(`/conversations/${id}/mark-read`, { method: "POST" }).catch(() => undefined);
+      // Gạt cờ ngay trên màn hình, khỏi chờ tải lại danh sách.
+      setConvs((p) => p?.map((c) => (c.id === id ? { ...c, has_unread: false } : c)) ?? p);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setMessages([]);
