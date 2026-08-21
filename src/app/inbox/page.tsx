@@ -23,6 +23,7 @@ import { MessageContent } from "@/components/message-content";
 import { Avatar, DotsIcon, IconBtn, Ticks } from "@/components/ui";
 import { ReplyModeChip, ReplyModeSheet } from "@/components/reply-mode-sheet";
 import { Rail, type RailTab } from "@/components/rail";
+import { dungBanPhimMo } from "@/lib/ban-phim";
 import { Composer } from "@/components/composer";
 import { TicketsPanel } from "./tickets-panel";
 import { TestPanel } from "./test-panel";
@@ -102,6 +103,7 @@ export default function InboxPage() {
   // biến này thì bấm "Sửa" ở nháp A rồi bấm "Duyệt" ở nháp B sẽ gửi chữ của A thành
   // bản sửa của B — gửi thẳng cho khách, không có bước xác nhận nào.
   const [dangSua, setDangSua] = useState<string | null>(null);
+  const banPhimMo = dungBanPhimMo();
   const [query, setQuery] = useState("");
   // Số đếm theo kênh, lấy từ /conversations/facets — đếm trên TOÀN BỘ hội thoại
   // chứ không phải trang đang tải, nên chip không nói dối khi khách có nhiều tin.
@@ -503,7 +505,9 @@ export default function InboxPage() {
             setActiveId(null);
           }}
           badges={{ chat: convs?.filter((c) => c.has_unread).length ?? 0 }}
-          anTrenMobile={tab === "chat" && !!activeId}
+          // Bàn phím bật thì giấu thanh ở MỌI tab: nó đẩy ô soạn lên và ăn nốt vài
+          // dòng cuối, đúng chỗ vừa gõ.
+          anTrenMobile={banPhimMo || (tab === "chat" && !!activeId)}
         />
 
         {/* Bọc thêm một lớp: hai khối này luôn NẰM NGANG với nhau (danh sách ↔ chi
