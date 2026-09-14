@@ -65,7 +65,7 @@ export function ReportPanel() {
               </span>
             </div>
             <p className="mt-0.5 text-[13px] text-slate-500">
-              Quy kết chi phí quảng cáo $\rightarrow$ lead liên hệ $\rightarrow$ đơn chốt cho {BRAND.name}
+              Quy kết chi phí quảng cáo → lead liên hệ → đơn chốt cho {BRAND.name}
             </p>
           </div>
 
@@ -102,7 +102,7 @@ export function ReportPanel() {
             <div>
               <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Kết luận tháng</span>
               <p className="mt-1 text-[17px] font-bold sm:text-[19px]" style={{ color: "var(--wa-teal)" }}>
-                Tháng 8: 12,4tr ngân sách $\rightarrow$ 34 lead $\rightarrow$ 7 đơn $\rightarrow$ 91tr doanh thu $\rightarrow$ ROAS 7.3x
+                Tháng 8: 12,4tr ngân sách → 34 lead → 7 đơn → 91tr doanh thu → ROAS 7.3x
               </p>
               <p className="mt-1 text-[13px] text-slate-600 leading-5">
                 Cứ 1 đồng ngân sách quảng cáo thu về 7,3 đồng doanh thu thực tế ghi nhận từ sale.
@@ -156,7 +156,7 @@ export function ReportPanel() {
           <div className="rounded-2xl border bg-white p-5 shadow-sm" style={{ borderColor: "var(--wa-border)" }}>
             <div className="flex items-center justify-between pb-3">
               <h3 className="text-[14.5px] font-bold text-slate-900">Phân bổ theo Kênh liên hệ</h3>
-              <span className="text-[11.5px] text-slate-400">Đo từ `nd-tag`</span>
+              <span className="text-[11.5px] text-slate-400">Đo từ nd-tag</span>
             </div>
             <div className="divide-y text-[13px]" style={{ borderColor: "var(--wa-border)" }}>
               {channels.map((c) => (
