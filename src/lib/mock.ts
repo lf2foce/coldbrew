@@ -135,7 +135,7 @@ export const MOCK_TICKETS: Ticket[] = [
   { id: "k2", conversation_id: "c4", platform: "web", request_code: "YC-1041", request_type: "Xem nhà mẫu", status: "in_progress", customer_name: "Anh Quốc Hưng", customer_phone: "0987 654 321", summary: "Xem căn 3PN đã hoàn thiện, chiều thứ 5", assigned_to_name: "Ngọc Anh", created_at: "2026-08-17T16:40:00.000Z" },
   { id: "k3", conversation_id: "c3", platform: "facebook", request_code: "YC-1040", request_type: "Pháp lý", status: "open", customer_name: "Chị Ngọc Hà", customer_phone: "", summary: "Hỏi tiến độ cấp sổ hồng", assigned_to_name: "", created_at: "2026-08-18T07:05:00.000Z" },
   { id: "k4", conversation_id: "c5", platform: "zalo", request_code: "YC-1039", request_type: "Vay vốn", status: "in_progress", customer_name: "Chị Thu Trang", customer_phone: "", summary: "Cần báo lãi suất vay đang áp dụng", assigned_to_name: "Minh Tú", created_at: "2026-08-17T11:15:00.000Z" },
-  { id: "k5", conversation_id: "c2", platform: "zalo", request_code: "YC-1038", request_type: "Đầu tư", status: "resolved", customer_name: "Anh Đức Thắng", customer_phone: "0903 111 222", summary: "Đã gửi bảng dòng tiền cho thuê Sun Vũng Tàu", assigned_to_name: "Ngọc Anh", created_at: "2026-08-18T08:20:00.000Z" },
+  { id: "k5", conversation_id: "c2", platform: "zalo", request_code: "YC-1038", request_type: "Đầu tư", status: "resolved", customer_name: "Anh Đức Thắng", customer_phone: "0903 111 222", summary: "Đã gửi bảng dòng tiền cho thuê Sun Vũng Tàu", assigned_to_name: "Ngọc Anh", created_at: "2026-08-18T08:20:00.000Z", deal_value: 45000000 },
 ];
 
 export const MOCK_QUALITY: AgentQuality = {

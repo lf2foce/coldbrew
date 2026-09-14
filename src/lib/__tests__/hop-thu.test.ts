@@ -8,7 +8,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { chipMacDinh, dungChip, nguonCanHoi } from "../hop-thu.ts";
+import {
+  apGhiTay,
+  chipMacDinh,
+  dongXemTruoc,
+  dungChip,
+  GHI_TAY_HAN_MS,
+  nguonCanHoi,
+  type GhiTay,
+} from "../hop-thu.ts";
+import type { Conversation } from "../types.ts";
 
 const FACETS = [
   { platform: "external_api", count: 3324 },
@@ -93,4 +102,62 @@ test("Facebook đứng đầu KỂ CẢ khi ít hội thoại hơn kênh khác",
     "Chưa đọc",
     "Tất cả",
   ]);
+});
+
+// ── Dòng xem trước ───────────────────────────────────────────────────────────
+
+const CONV: Pick<Conversation, "platform" | "message_count"> = {
+  platform: "zalo",
+  message_count: 12,
+};
+
+test("xem trước là tin cuối; tin của MÌNH thì kèm cờ để vẽ tích", () => {
+  assert.deepEqual(dongXemTruoc(CONV, { role: "user", content: "Cho xem sổ hồng" }), {
+    text: "Cho xem sổ hồng",
+    mine: false,
+  });
+  assert.deepEqual(dongXemTruoc(CONV, { role: "human_agent", content: "Dạ đây ạ" }), {
+    text: "Dạ đây ạ",
+    mine: true,
+  });
+});
+
+test("chưa có tin cuối thì lùi về nhãn nguồn + số tin, KHÔNG bịa nội dung", () => {
+  const r = dongXemTruoc({ ...CONV, message_count: null }, null);
+  assert.equal(r.text, "Zalo · 0 tin");
+  assert.equal(r.mine, false);
+});
+
+// ── Ghi tay khi làm mới im lặng ──────────────────────────────────────────────
+
+const HAI_CONV: Conversation[] = [
+  { id: "a", title: null, platform: "facebook", status: null, message_count: 1, updated_at: "", has_unread: true },
+  { id: "b", title: null, platform: "zalo", status: null, message_count: 2, updated_at: "", has_unread: false },
+];
+
+function ghi(patch: Omit<GhiTay, "luc">, luc: number): Map<string, GhiTay> {
+  return new Map([["a", { ...patch, luc }]]);
+}
+
+test("ghi tay còn hạn thì đè lên dữ liệu poll", () => {
+  const out = apGhiTay(HAI_CONV, ghi({ has_unread: false }, 0), GHI_TAY_HAN_MS - 1);
+  assert.equal(out[0].has_unread, false);
+  // hội thoại không bị đụng tới giữ nguyên
+  assert.equal(out[1].has_unread, false);
+});
+
+test("ghi tay hết hạn thì tin server trở lại làm chủ", () => {
+  const out = apGhiTay(HAI_CONV, ghi({ has_unread: false }, 0), GHI_TAY_HAN_MS);
+  assert.equal(out[0].has_unread, true);
+});
+
+test("ghi tay nấc trả lời null (về mặc định kênh) vẫn được áp — null KHÁCH undefined", () => {
+  HAI_CONV[0].reply_mode_override = "off";
+  const out = apGhiTay(HAI_CONV, ghi({ reply_mode_override: null }, 0), 0);
+  assert.equal(out[0].reply_mode_override, null);
+});
+
+test("không có ghi tay nào thì trả nguyên danh sách, khỏi dựng mảng mới", () => {
+  const rong = new Map<string, GhiTay>();
+  assert.equal(apGhiTay(HAI_CONV, rong, 0), HAI_CONV);
 });

@@ -16,6 +16,13 @@ export const BRAND = {
 
 export const AGENT_ID = process.env.NEXT_PUBLIC_AGENT_ID || "";
 
+// Bật/tắt tính năng theo nhu cầu khách (mặc định 1 = BẬT, đặt 0 = TẮT)
+/** Cho phép sale nhập số tiền khi chốt đơn (chuyển sang 'Đã xong') */
+export const ENABLE_DEAL_REVENUE = process.env.NEXT_PUBLIC_ENABLE_DEAL_REVENUE !== "0";
+
+/** Hiển thị tab Báo cáo doanh thu & hiệu quả (tờ A4 / insight report) trên thanh rail */
+export const ENABLE_INSIGHT_REPORT = process.env.NEXT_PUBLIC_ENABLE_INSIGHT_REPORT !== "0";
+
 // TENANT_ID đã bỏ: workspace nay lấy TỪ API KEY ở phía server, client không khai
 // nữa. Nhờ vậy cũng hết được cái bẫy cũ — dán nhầm id của DB dev lên production
 // thì hộp thư trống trơn mà không báo lỗi gì.

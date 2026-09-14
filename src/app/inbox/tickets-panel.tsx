@@ -17,7 +17,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AGENT_ID } from "@/lib/brand";
+import { AGENT_ID, ENABLE_DEAL_REVENUE } from "@/lib/brand";
 import { MOCK, MOCK_TICKETS } from "@/lib/mock";
 import { NHAN_NGUON, TICKET_STATUS_LABEL, TICKET_STATUSES, type Ticket, type TicketStatus } from "@/lib/types";
 import { makeApi } from "@/lib/api";
@@ -81,6 +81,11 @@ function TicketCard({
           <span>Chưa có SĐT</span>
         )}
         <span>{t.assigned_to_name ? `Giao: ${t.assigned_to_name}` : "Chưa giao"}</span>
+        {ENABLE_DEAL_REVENUE && t.deal_value != null && (
+          <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11.5px] font-bold text-emerald-700">
+            💰 {t.deal_value.toLocaleString("vi-VN")} đ
+          </span>
+        )}
       </div>
 
       <div className="mt-2.5 flex flex-wrap gap-1.5">
@@ -118,6 +123,8 @@ export function TicketsPanel({ onOpenConversation }: { onOpenConversation: (id: 
   // là dữ liệu test ("Nguyễn Văn A / 0912345678"). Trộn chung thì cột "Mới" đầy yêu
   // cầu giả, người trực không biết cái nào là khách thật cần gọi lại.
   const [nguon, setNguon] = useState<string>("facebook");
+  const [dealModalTicket, setDealModalTicket] = useState<Ticket | null>(null);
+  const [dealAmount, setDealAmount] = useState<string>("");
 
   // Chọn kiểu xem theo bề ngang THẬT của cửa sổ, không đoán theo thiết bị.
   useEffect(() => {
@@ -144,10 +151,17 @@ export function TicketsPanel({ onOpenConversation }: { onOpenConversation: (id: 
     void load();
   }, [load]);
 
-  const advance = useCallback(async (t: Ticket, to: TicketStatus) => {
+  const advance = useCallback(async (t: Ticket, to: TicketStatus, dealValue?: number | null) => {
     setBusy(t.id);
     const before = t.status;
-    setTickets((p) => p?.map((x) => (x.id === t.id ? { ...x, status: to } : x)) ?? p);
+    const beforeDeal = t.deal_value;
+    setTickets((p) =>
+      p?.map((x) =>
+        x.id === t.id
+          ? { ...x, status: to, ...(dealValue !== undefined ? { deal_value: dealValue } : {}) }
+          : x
+      ) ?? p
+    );
     if (MOCK) {
       setBusy(null);
       return;
@@ -155,15 +169,30 @@ export function TicketsPanel({ onOpenConversation }: { onOpenConversation: (id: 
     try {
       await api(`/agents/${AGENT_ID}/tickets/${t.id}`, {
         method: "PATCH",
-        body: JSON.stringify({ status: to }),
+        body: JSON.stringify({
+          status: to,
+          ...(dealValue !== undefined && dealValue !== null ? { deal_value: dealValue } : {}),
+        }),
       });
     } catch (e) {
-      setTickets((p) => p?.map((x) => (x.id === t.id ? { ...x, status: before } : x)) ?? p);
+      setTickets((p) => p?.map((x) => (x.id === t.id ? { ...x, status: before, deal_value: beforeDeal } : x)) ?? p);
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(null);
     }
   }, [api]);
+
+  const handleStartAdvance = useCallback(
+    (t: Ticket, to: TicketStatus) => {
+      if (ENABLE_DEAL_REVENUE && to === "resolved") {
+        setDealModalTicket(t);
+        setDealAmount(t.deal_value ? String(t.deal_value) : "");
+        return;
+      }
+      void advance(t, to);
+    },
+    [advance]
+  );
 
   /** Nhóm theo cột. Trạng thái lạ từ backend vẫn phải hiện ở đâu đó — dồn vào
    *  "Đã đóng" còn hơn để nó biến mất im lặng. */
@@ -281,7 +310,7 @@ export function TicketsPanel({ onOpenConversation }: { onOpenConversation: (id: 
                         key={t.id}
                         t={t}
                         onOpenConversation={onOpenConversation}
-                        onAdvance={advance}
+                        onAdvance={handleStartAdvance}
                         busy={busy === t.id}
                       />
                     ))}
@@ -326,7 +355,7 @@ export function TicketsPanel({ onOpenConversation }: { onOpenConversation: (id: 
                     key={t.id}
                     t={t}
                     onOpenConversation={onOpenConversation}
-                    onAdvance={advance}
+                    onAdvance={handleStartAdvance}
                     busy={busy === t.id}
                   />
                 ))}
@@ -335,6 +364,86 @@ export function TicketsPanel({ onOpenConversation }: { onOpenConversation: (id: 
           );
         })}
       </div>
+
+      {dealModalTicket && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div
+            className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl border animate-in fade-in zoom-in-95 duration-150"
+            style={{ borderColor: "var(--wa-border)" }}
+          >
+            <h3 className="text-[16px] font-bold" style={{ color: "var(--wa-text)" }}>
+              Xác nhận chốt đơn 🎉
+            </h3>
+            <p className="mt-1 text-[13px]" style={{ color: "var(--wa-text-soft)" }}>
+              Khách: <strong className="text-slate-900">{dealModalTicket.customer_name || "Khách"}</strong>{" "}
+              {dealModalTicket.customer_phone ? `(${dealModalTicket.customer_phone})` : ""}
+            </p>
+
+            <div className="mt-4">
+              <label className="text-[12.5px] font-semibold text-slate-700">
+                Giá trị đơn chốt (VNĐ):
+              </label>
+              <input
+                type="number"
+                value={dealAmount}
+                onChange={(e) => setDealAmount(e.target.value)}
+                placeholder="Ví dụ: 15000000"
+                className="mt-1.5 w-full rounded-lg border px-3 py-2 text-[14px] font-medium outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
+                style={{ borderColor: "var(--wa-border)" }}
+                autoFocus
+              />
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {[5_000_000, 10_000_000, 20_000_000, 50_000_000].map((v) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => setDealAmount(String(v))}
+                    className="rounded-md border bg-slate-50 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-100"
+                    style={{ borderColor: "var(--wa-border)" }}
+                  >
+                    +{v / 1_000_000}tr
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-5 flex items-center justify-end gap-2 text-[13px]">
+              <button
+                type="button"
+                onClick={() => setDealModalTicket(null)}
+                className="rounded-lg px-3 py-1.5 font-medium text-slate-500 hover:bg-slate-100"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const t = dealModalTicket;
+                  setDealModalTicket(null);
+                  void advance(t, "resolved", null);
+                }}
+                className="rounded-lg border px-3 py-1.5 font-medium text-slate-700 hover:bg-slate-50"
+                style={{ borderColor: "var(--wa-border)" }}
+              >
+                Bỏ qua số tiền
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const t = dealModalTicket;
+                  const val = dealAmount ? Number(dealAmount) : null;
+                  setDealModalTicket(null);
+                  void advance(t, "resolved", val);
+                }}
+                className="rounded-lg px-4 py-1.5 font-medium text-white shadow-sm transition hover:opacity-95"
+                style={{ background: "var(--wa-teal)" }}
+              >
+                Lưu &amp; Hoàn tất
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -8,6 +8,7 @@
 // như `import type` bị xoá khi strip-types. Thiếu đuôi là test không nạp được module.
 // tsconfig bật `allowImportingTsExtensions` nên bundler vẫn hiểu.
 import { laNoiBo, nhanNguon } from "./types.ts";
+import type { Conversation, ReplyMode } from "./types.ts";
 
 /** Nguồn thuộc hộp thư KHÁCH HÀNG và hộp thư NỘI BỘ.
  *
@@ -78,4 +79,57 @@ export function chipMacDinh(facets: Facet[], cheDo: CheDo): string {
     .filter((x) => !laNoiBo(x.platform) && x.platform !== "external_api")
     .sort((a, b) => b.count - a.count)[0];
   return dau ? `kenh:${dau.platform}` : "all";
+}
+
+// ── Dòng xem trước ────────────────────────────────────────────────────────────
+
+/** Dòng dưới tên khách trong danh sách = TIN CUỐI (nếp WhatsApp). Tin cuối do MÌNH
+ *  gửi thì kèm tích. Chưa có tin cuối trong bộ nhớ đệm (hội thoại chưa từng mở phiên
+ *  này) thì lùi về nhãn nguồn + số tin — thà nói ít còn hơn bịa. */
+export function dongXemTruoc(
+  c: Pick<Conversation, "platform" | "message_count">,
+  tinCuoi?: { role: string; content: string } | null,
+): { text: string; mine: boolean } {
+  if (!tinCuoi)
+    return {
+      text: `${nhanNguon(c.platform || "web")} · ${c.message_count ?? 0} tin`,
+      mine: false,
+    };
+  return { text: tinCuoi.content, mine: tinCuoi.role !== "user" };
+}
+
+// ── Làm mới im lặng ──────────────────────────────────────────────────────────
+
+/** Một chỉnh sửa CỤC BỘ vừa xảy ra trên dữ liệu đã tải: gạt cờ chưa đọc khi mở hội
+ *  thoại, đổi nấc trả lời (cập nhật lạc quan). Poll định kỳ mang dữ liệu server về
+ *  có thể CŨ hơn hành động đó (mark-read chưa kịp chạm DB), áp nguyên xi là chấm
+ *  chưa-đọc bật lại / nấc trả lời giật về — người trực thấy hệ thống "tự đảo" quyết
+ *  định của mình. Nên mỗi ghi tay sống ngắn một khoảng, đè lên kết quả poll trong
+ *  khoảng đó; hết hạn thì tin server trở lại làm chủ. */
+export type GhiTay = {
+  has_unread?: boolean;
+  reply_mode_override?: ReplyMode;
+  /** Mốc `Date.now()` lúc ghi tay. */
+  luc: number;
+};
+
+export const GHI_TAY_HAN_MS = 60_000;
+
+export function apGhiTay(
+  list: Conversation[],
+  ghiTay: Map<string, GhiTay>,
+  bayGio: number,
+): Conversation[] {
+  if (!ghiTay.size) return list;
+  return list.map((c) => {
+    const g = ghiTay.get(c.id);
+    if (!g || bayGio - g.luc >= GHI_TAY_HAN_MS) return c;
+    return {
+      ...c,
+      ...(g.has_unread !== undefined ? { has_unread: g.has_unread } : {}),
+      ...(g.reply_mode_override !== undefined
+        ? { reply_mode_override: g.reply_mode_override }
+        : {}),
+    };
+  });
 }

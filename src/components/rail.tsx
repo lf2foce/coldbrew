@@ -17,7 +17,9 @@
  * đáy, và trên iOS còn chồng vào vạch home.
  */
 
-export type RailTab = "chat" | "task" | "quality" | "test" | "settings";
+import { ENABLE_INSIGHT_REPORT } from "@/lib/brand";
+
+export type RailTab = "chat" | "task" | "quality" | "report" | "test" | "settings";
 
 type Muc = { key: RailTab; label: string; nhan: string; icon: React.ReactNode };
 
@@ -56,6 +58,22 @@ const TOP_ITEMS: Muc[] = [
       </svg>
     ),
   },
+  ...(ENABLE_INSIGHT_REPORT
+    ? [
+        {
+          key: "report" as RailTab,
+          label: "Báo cáo doanh thu & hiệu quả",
+          nhan: "Báo cáo",
+          icon: (
+            <svg viewBox="0 0 24 24" className="h-[21px] w-[21px]" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 3v18h18" />
+              <path d="M7 16l4-4 4 2 5-6" />
+              <path d="M16 8h4v4" />
+            </svg>
+          ),
+        },
+      ]
+    : []),
 ];
 
 const BOTTOM_ITEMS: Muc[] = [

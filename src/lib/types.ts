@@ -190,6 +190,8 @@ export type Ticket = {
   summary: string;
   assigned_to_name: string;
   created_at: string;
+  /** Giá trị đơn chốt (VNĐ) khi khách chuyển sang 'Đã xong' */
+  deal_value?: number | null;
 };
 
 /** Câu hỏi trợ lý phục vụ chưa trọn — nguồn `GET /business/agents/{id}/quality`.

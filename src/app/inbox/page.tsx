@@ -17,7 +17,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AGENT_ID } from "@/lib/brand";
 import { MOCK, MOCK_CONVERSATIONS, MOCK_DRAFTS, MOCK_MESSAGES } from "@/lib/mock";
 import { NHAN_NGUON, nhanNguon } from "@/lib/types";
-import { chipMacDinh, dungChip, nguonCanHoi } from "@/lib/hop-thu";
+import { chipMacDinh, dungChip, nguonCanHoi, apGhiTay, dongXemTruoc, type GhiTay } from "@/lib/hop-thu";
 import type { Conversation, Draft, Message, ReplyMode, SearchHit } from "@/lib/types";
 import { Highlight } from "@/components/highlight";
 import { MessageContent } from "@/components/message-content";
@@ -30,8 +30,10 @@ import { TicketsPanel } from "./tickets-panel";
 import { TestPanel } from "./test-panel";
 import { QualityPanel } from "./quality-panel";
 import { SettingsPanel } from "./settings-panel";
+import { ReportPanel } from "./report-panel";
 import { makeApi } from "@/lib/api";
 import { useConversationStream } from "@/lib/use-conversation-stream";
+import { useTabAlert } from "@/lib/use-tab-alert";
 
 function timeOnly(iso: string): string {
   return new Date(iso).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
@@ -124,6 +126,18 @@ export default function InboxPage() {
     convsRef.current = convs;
   }, [convs]);
 
+  // Tin cuối mỗi hội thoại đã TỪNG mở phiên này — nguồn cho dòng xem trước trong
+  // danh sách. Backend không trả tin cuối ở /conversations (hợp đồng README), nên
+  // chỉ biết dần: mở hội thoại thì nạp, SSE thì cập nhật. Hội thoại chưa mở lần nào
+  // vẫn lùi về "Nguồn · N tin" — thà nói ít còn hơn bịa.
+  const [tinCuoi, setTinCuoi] = useState<Map<string, Message>>(new Map());
+  // Chỉnh sửa cục bộ còn mới (gạt chưa-đọc, đổi nấc lạc quan) — poll về phải nhường
+  // chỗ chúng, chi tiết ở GhiTay.
+  const ghiTayRef = useRef(new Map<string, GhiTay>());
+  const ghiDe = useCallback((id: string, patch: Omit<GhiTay, "luc">) => {
+    ghiTayRef.current.set(id, { ...ghiTayRef.current.get(id), ...patch, luc: Date.now() });
+  }, []);
+
   useEffect(() => setNow(new Date()), []);
 
   const loadConvs = useCallback(async () => {
@@ -169,6 +183,45 @@ export default function InboxPage() {
     void loadFacets();
   }, [loadFacets]);
 
+  // ── Danh sách SỐNG cả khi không mở hội thoại nào ─────────────────────────────
+  // SSE chỉ nghe MỘT hội thoại (endpoint backend là /conversations/{id}/events, hợp
+  // đồng README — không có stream toàn hộp thư), nên cột trái trước đây đứng im cho
+  // tới khi đổi chip: khách nhắn vào cuộc khác thì không ai biết. Bù bằng poll im
+  // lặng: lặp lại đúng truy vấn của loadConvs, KHÔNG đụng error/loading để màn hình
+  // không nháy. Tab ẩn thì ngừng hỏi (tiết kiệm pin và backend), quay lại tab là hỏi
+  // ngay một phát cho dữ liệu tươi.
+  useEffect(() => {
+    if (MOCK) return;
+    let stopped = false;
+    const nap = async () => {
+      // document.hidden kiểm tra HAI chỗ: trước khi gửi và trước khi gán — phản hồi
+      // về sau khi người dùng vừa rời tab thì đừng cướp tiêu đề đang nhấp nháy.
+      if (stopped || document.hidden) return;
+      try {
+        const qs = new URLSearchParams({ scope: "all", limit: "50" });
+        if (AGENT_ID) qs.set("agent_id", AGENT_ID);
+        for (const p of nguonCanHoi(filter, cheDo)) qs.append("platforms", p);
+        const moi = await api<Conversation[]>(`/conversations?${qs}`);
+        if (stopped || document.hidden) return;
+        setConvs(apGhiTay(moi, ghiTayRef.current, Date.now()));
+        // Chip số đếm cũng phải theo kịp; lỗi thì loadFacets tự nuốt.
+        void loadFacets();
+      } catch {
+        /* chu kỳ sau thử lại — poll nền không đáng thay banner lỗi */
+      }
+    };
+    const t = window.setInterval(nap, 15_000);
+    const vuaMoiLai = () => {
+      if (!document.hidden) void nap();
+    };
+    document.addEventListener("visibilitychange", vuaMoiLai);
+    return () => {
+      stopped = true;
+      window.clearInterval(t);
+      document.removeEventListener("visibilitychange", vuaMoiLai);
+    };
+  }, [api, filter, cheDo, loadFacets]);
+
   const openConv = useCallback(async (id: string, targetMessageId?: string) => {
     pendingTargetRef.current = targetMessageId ?? null;
     setActiveId(id);
@@ -196,7 +249,11 @@ export default function InboxPage() {
         const bu = await api<Conversation>(`/conversations/${id}`).catch(() => null);
         if (bu) setConvs((p) => (p?.some((c) => c.id === bu.id) ? p : [bu, ...(p ?? [])]));
       }
-      setMessages(await api<Message[]>(`/conversations/${id}/messages`));
+      const ms = await api<Message[]>(`/conversations/${id}/messages`);
+      setMessages(ms);
+      // Nạp bộ đệm tin cuối: dòng xem trước trong danh sách từ giờ hiện nội dung thật.
+      const cuoi = ms[ms.length - 1];
+      if (cuoi) setTinCuoi((p) => new Map(p).set(id, cuoi));
       // Nháp hỏng thì vẫn cho đọc tin — đừng để một endpoint phụ chặn cả màn.
       // `status=pending` — không có thì backend trả CẢ nháp đã gửi và đã bỏ, nên
       // hội thoại cũ hiện lại một chồng nháp chết kèm nút "Duyệt & gửi".
@@ -207,17 +264,16 @@ export default function InboxPage() {
       // qua SSE, nên hội thoại người trực vừa đọc xong vẫn nằm nguyên trong "Chưa
       // đọc" — bộ lọc chỉ ra một danh sách không bao giờ vơi, tức là vô dụng.
       void api(`/conversations/${id}/mark-read`, { method: "POST" }).catch(() => undefined);
-      // Gạt cờ ngay trên màn hình, khỏi chờ tải lại danh sách.
+      // Gạt cờ ngay trên màn hình, khỏi chờ tải lại danh sách. Ghi tay kèm mốc giờ:
+      // poll nền sắp tới có thể về TRƯỚC khi mark-read chạm DB — áp nguyên xi là
+      // chấm chưa-đọc bật lại ngay trước mắt.
+      ghiDe(id, { has_unread: false });
       setConvs((p) => p?.map((c) => (c.id === id ? { ...c, has_unread: false } : c)) ?? p);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setMessages([]);
     }
-  }, [api]);
-
-  useEffect(() => {
-    convsRef.current = convs;
-  }, [convs]);
+  }, [api, ghiDe]);
 
   useEffect(() => {
     void loadConvs();
@@ -331,6 +387,7 @@ export default function InboxPage() {
             : c,
         ) ?? prev,
       );
+      if (activeId) setTinCuoi((p) => new Map(p).set(activeId, m));
     },
     // Khách vừa nhắn → trợ lý có thể vừa soạn nháp mới.
     onUserMessage: () => {
@@ -346,6 +403,8 @@ export default function InboxPage() {
       setConvs((prev) =>
         prev?.map((c) => (c.id === activeId ? { ...c, reply_mode_override: mode } : c)) ?? prev,
       );
+      // Ghi tay: poll nền về trong tích tắc không được giật nấc về giá trị cũ.
+      ghiDe(activeId, { reply_mode_override: mode });
       if (MOCK) return;
       try {
         await api(`/conversations/${activeId}/reply-mode`, {
@@ -356,10 +415,11 @@ export default function InboxPage() {
         setConvs((prev) =>
           prev?.map((c) => (c.id === activeId ? { ...c, reply_mode_override: before } : c)) ?? prev,
         );
+        ghiDe(activeId, { reply_mode_override: before });
         setError(e instanceof Error ? e.message : String(e));
       }
     },
-    [activeId, active, api],
+    [activeId, active, api, ghiDe],
   );
 
   /** Duyệt nháp: gửi nguyên văn, hoặc sửa rồi gửi nếu ô soạn đang có chữ. */
@@ -431,6 +491,8 @@ export default function InboxPage() {
       created_at: new Date().toISOString(),
     };
     setMessages((p) => [...(p ?? []), optimistic]);
+    // Tin cuối của danh sách cũng phải là tin vừa gửi — tích hiện ngay ở dòng xem trước.
+    if (activeId) setTinCuoi((p) => new Map(p).set(activeId, optimistic));
     if (MOCK) {
       setSending(false);
       return;
@@ -496,17 +558,22 @@ export default function InboxPage() {
     return list;
   }, [convs, query, filter, hits]);
 
-  /** Dòng xem trước = tin cuối. Tin cuối do MÌNH gửi thì kèm tích — nếp WhatsApp. */
-  const preview = useCallback((c: Conversation): { text: string; mine: boolean } => {
-    const list = MOCK ? MOCK_MESSAGES[c.id] : undefined;
-    const last = list?.[list.length - 1];
-    if (!last)
-      return {
-        text: `${NHAN_NGUON[c.platform || "web"] ?? c.platform} · ${c.message_count ?? 0} tin`,
-        mine: false,
-      };
-    return { text: last.content, mine: last.role !== "user" };
-  }, []);
+  /** Dòng xem trước = tin cuối (từ bộ đệm tinCuoi). Mock vẫn đọc MOCK_MESSAGES như cũ. */
+  const preview = useCallback(
+    (c: Conversation): { text: string; mine: boolean } => {
+      if (!MOCK) return dongXemTruoc(c, tinCuoi.get(c.id) ?? null);
+      const list = MOCK_MESSAGES[c.id];
+      const last = list?.[list.length - 1];
+      if (!last) return dongXemTruoc(c, null);
+      return dongXemTruoc(c, last);
+    },
+    [tinCuoi],
+  );
+
+  // Số hội thoại chưa đọc trong phần ĐANG tải — cùng nguồn với badge Rail, nên tiêu
+  // đề tab và badge không bao giờ nói hai số khác nhau.
+  const soChuaDoc = useMemo(() => convs?.filter((c) => c.has_unread).length ?? 0, [convs]);
+  useTabAlert(soChuaDoc, !MOCK);
 
   return (
     <div className="flex h-dvh flex-col">
@@ -775,6 +842,8 @@ export default function InboxPage() {
                 void openConv(id);
               }}
             />
+          ) : tab === "report" ? (
+            <ReportPanel />
           ) : tab === "settings" ? (
             <SettingsPanel />
           ) : tab === "test" ? (
