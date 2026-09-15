@@ -97,15 +97,16 @@ export function isBrokerSession(raw: string | undefined): raw is string {
 }
 
 /** Đăng nhập mật khẩu dùng chung còn được phép không — MỘT nơi quyết định cho route
- *  /api/login, trang /sign-in lẫn việc nhận cookie cũ. */
+ *  /api/login, trang /sign-in lẫn việc nhận cookie cũ. Có `APP_PASSWORD` ⇒ bật; xoá
+ *  `APP_PASSWORD` khỏi env ⇒ tắt, và cookie mật khẩu đã phát hết hiệu lực ngay. */
 export function legacyLoginEnabled(): boolean {
-  return !process.env.COLDBREW_AUTH_URL?.trim() || process.env.ALLOW_LEGACY_PASSWORD_LOGIN === "1";
+  return Boolean(process.env.APP_PASSWORD);
 }
 
 export async function hasUsableSession(raw: string | undefined): Promise<boolean> {
   if (isBrokerSession(raw)) return true;
-  // Tắt legacy mà vẫn nhận cookie mật khẩu cũ = người đã bị "tắt" dùng tiếp
-  // PHENAU_API_KEY thêm tới 12 giờ.
+  // Tắt mật khẩu mà vẫn nhận cookie cũ = người đã bị "tắt" dùng tiếp PHENAU_API_KEY
+  // thêm tới 12 giờ.
   return legacyLoginEnabled() && verifySession(raw);
 }
 

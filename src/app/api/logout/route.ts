@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { backendUrl } from "@/lib/backend";
+import { backendApiUrl } from "@/lib/backend";
 import { isBrokerSession, SESSION_COOKIE, cookieOptions, cungNguonGoc } from "@/lib/session";
 
 export async function POST(req: NextRequest) {
@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
   }
   const token = req.cookies.get(SESSION_COOKIE)?.value;
   if (isBrokerSession(token)) {
-    await fetch(`${backendUrl()}/api/v1/coldbrew/auth/logout`, {
+    await fetch(backendApiUrl("/v1/coldbrew/auth/logout"), {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,

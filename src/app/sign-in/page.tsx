@@ -10,14 +10,11 @@ const THONG_BAO: Record<string, string> = {
 };
 
 export default async function SignInPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
-  const authEnabled = Boolean(process.env.COLDBREW_AUTH_URL?.trim());
-  // App cũ chưa có auth URL vẫn dùng password. Khi có identity bridge, legacy
-  // chỉ hiện nếu operator chủ động bật canary flag.
+  // Cổng Phê Nâu luôn có. Form mật khẩu chỉ hiện khi deployment còn APP_PASSWORD.
   const legacyEnabled = legacyLoginEnabled();
   const error = (await searchParams).error;
   return (
     <SignInClient
-      authEnabled={authEnabled}
       legacyEnabled={legacyEnabled}
       thongBao={error ? THONG_BAO[error] ?? "" : ""}
     />

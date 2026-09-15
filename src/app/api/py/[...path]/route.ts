@@ -17,7 +17,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { ALLOWLIST_LEN, khop } from "@/lib/allowlist";
-import { backendUrl } from "@/lib/backend";
+import { backendApiUrl } from "@/lib/backend";
 import {
   cookieOptions,
   cungNguonGoc,
@@ -61,7 +61,7 @@ async function chuyenTiep(req: NextRequest, path: string[]) {
     return NextResponse.json({ error: "Chưa cấu hình PHENAU_API_KEY" }, { status: 500 });
   }
 
-  const url = new URL(`/api${duong}`, backendUrl());
+  const url = new URL(backendApiUrl(duong));
   url.search = req.nextUrl.search;
 
   const headers = new Headers();

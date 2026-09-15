@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { backendUrl } from "@/lib/backend";
+import { backendApiUrl } from "@/lib/backend";
 import { callbackReturnUrl, STATE_COOKIE, stateCookieOptions, stateMatches } from "@/lib/oauth-state";
 import { cookieOptions, SESSION_COOKIE } from "@/lib/session";
 
@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
   if (!stateMatches(state, req.cookies.get(STATE_COOKIE)?.value)) {
     return veDangNhap(req, "invalid_state");
   }
-  const result = await fetch(`${backendUrl()}/api/v1/coldbrew/auth/exchange`, {
+  const result = await fetch(backendApiUrl("/v1/coldbrew/auth/exchange"), {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify({

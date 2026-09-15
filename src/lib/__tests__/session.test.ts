@@ -11,7 +11,7 @@ import { test } from "node:test";
 process.env.SESSION_SECRET = "day-la-secret-du-32-ky-tu-cho-hmac-sha256";
 process.env.APP_PASSWORD = "mat-khau-mot";
 
-const { createSession, cungNguonGoc, hasUsableSession, isBrokerSession, verifySession } = await import("../session.ts");
+const { createSession, cungNguonGoc, hasUsableSession, isBrokerSession, legacyLoginEnabled, verifySession } = await import("../session.ts");
 
 test("opaque session từ identity bridge được nhận dạng nhưng token bịa ngắn bị chặn", async () => {
   const token = `cb_live_${"A".repeat(64)}`;
@@ -79,17 +79,16 @@ test("xoá SESSION_SECRET (runbook 41 bước 6) thì cookie cũ chỉ vô hiệ
   }
 });
 
-test("đã chuyển sang identity bridge và tắt legacy thì cookie mật khẩu cũ hết tác dụng ngay", async () => {
+test("xoá APP_PASSWORD (tắt đăng nhập mật khẩu) thì cookie mật khẩu cũ hết tác dụng ngay", async () => {
   const { value } = await createSession();
   assert.ok(await hasUsableSession(value));
-  process.env.COLDBREW_AUTH_URL = "https://phenau.com";
+  const pw = process.env.APP_PASSWORD;
+  delete process.env.APP_PASSWORD;
   try {
-    process.env.ALLOW_LEGACY_PASSWORD_LOGIN = "0";
     assert.equal(await hasUsableSession(value), false, "cookie legacy vẫn dùng PHENAU_API_KEY sau khi tắt");
-    process.env.ALLOW_LEGACY_PASSWORD_LOGIN = "1";
-    assert.ok(await hasUsableSession(value), "canary bật lại legacy thì cookie hợp lệ");
+    assert.equal(legacyLoginEnabled(), false);
   } finally {
-    delete process.env.COLDBREW_AUTH_URL;
-    delete process.env.ALLOW_LEGACY_PASSWORD_LOGIN;
+    process.env.APP_PASSWORD = pw;
   }
+  assert.ok(legacyLoginEnabled());
 });

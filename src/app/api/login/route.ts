@@ -39,12 +39,9 @@ function bangNhau(a: string, b: string): boolean {
 
 export async function POST(req: NextRequest) {
   if (!legacyLoginEnabled()) {
-    return NextResponse.json({ error: "Đăng nhập mật khẩu cũ đã tắt" }, { status: 410 });
+    return NextResponse.json({ error: "Đăng nhập mật khẩu đã tắt" }, { status: 410 });
   }
   const matKhauThat = process.env.APP_PASSWORD || "";
-  if (!matKhauThat) {
-    return NextResponse.json({ error: "Chưa cấu hình APP_PASSWORD" }, { status: 500 });
-  }
 
   if (!cungNguonGoc(req)) {
     return NextResponse.json({ error: "Nguồn gốc không hợp lệ" }, { status: 403 });

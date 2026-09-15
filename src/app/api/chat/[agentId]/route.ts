@@ -14,7 +14,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { backendUrl } from "@/lib/backend";
+import { backendApiUrl } from "@/lib/backend";
 import {
   cookieOptions,
   hasUsableSession,
@@ -47,7 +47,7 @@ export async function POST(
     return new NextResponse("Chưa cấu hình PHENAU_API_KEY", { status: 500 });
   }
   const body = Buffer.from(await request.arrayBuffer());
-  const url = new URL(`/api/v1/agents/${agentId}/chat`, backendUrl());
+  const url = new URL(backendApiUrl(`/v1/agents/${encodeURIComponent(agentId)}/chat`));
 
   return await new Promise<NextResponse>((resolve) => {
     const transport = url.protocol === "https:" ? https : http;

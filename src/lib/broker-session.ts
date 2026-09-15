@@ -1,4 +1,4 @@
-import { backendUrl } from "@/lib/backend";
+import { backendApiUrl } from "@/lib/backend";
 
 /**
  * Phiên broker (`cb_live_…`) còn sống không — chỉ backend biết (hash, hạn, membership,
@@ -7,7 +7,7 @@ import { backendUrl } from "@/lib/backend";
  */
 export async function brokerSessionAlive(token: string, hostname: string): Promise<boolean> {
   try {
-    const res = await fetch(`${backendUrl()}/api/v1/users/me/principal`, {
+    const res = await fetch(backendApiUrl("/v1/users/me/principal"), {
       headers: {
         Authorization: `Bearer ${token}`,
         "X-Coldbrew-Host": hostname,

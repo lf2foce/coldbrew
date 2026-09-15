@@ -19,25 +19,25 @@ pnpm dev                       # http://localhost:3005
 
 | Biến | Bắt buộc | Việc |
 |---|---|---|
-| `BACKEND_URL` | ✅ | Gốc FastAPI mà server Coldbrew gọi thẳng. Đọc lúc xử lý request qua `lib/backend.ts` — xem cảnh báo dưới |
-| `COLDBREW_AUTH_URL` | ✅ | Cổng đăng nhập Phê Nâu trung tính: `https://phenau.com` |
-| `PHENAU_API_KEY` | rollout cũ | Key server-side dùng khi còn bật password legacy |
-| `APP_PASSWORD` | rollout cũ | Mật khẩu dùng chung; chỉ dùng khi bật legacy |
-| `ALLOW_LEGACY_PASSWORD_LOGIN` | không | `1` mới cho API password cũ hoạt động |
-| `SESSION_SECRET` | rollout cũ | Ký cookie password legacy, ≥32 ký tự |
+| `PHENAU_URL` | không | Origin Phê Nâu cho cả API lẫn cổng đăng nhập. Mặc định production `https://phenau.com`, dev `http://localhost:3000` |
+| `APP_PASSWORD` | rollout cũ | Có giá trị ⇒ bật đăng nhập mật khẩu dùng chung; xoá ⇒ tắt |
+| `PHENAU_API_KEY` | rollout cũ | Key server-side dùng khi còn đăng nhập mật khẩu |
+| `SESSION_SECRET` | rollout cũ | Ký cookie mật khẩu, ≥32 ký tự |
 | `NEXT_PUBLIC_AGENT_ID` | ✅ | Agent app hiển thị; phải khớp deployment và key legacy nếu còn dùng |
 | `NEXT_PUBLIC_PHIN_SDK_URL` | không | SDK analytics public, mặc định `https://phenau.com/phin.js` |
 | `NEXT_PUBLIC_BRAND_NAME` | ✅ | Tên hiện trên tab + màn đăng nhập |
 | `NEXT_PUBLIC_BRAND_ACCENT` | | Màu nhấn, mặc định `#1F4470` |
 
-> ⚠ **`BACKEND_URL` bắt buộc trên production.** Mọi route server đọc qua `lib/backend.ts`;
-> thiếu biến là báo lỗi rõ "Thiếu BACKEND_URL" (bản cũ rơi âm thầm về `localhost:8000`).
-> Trỏ thẳng Render hoặc custom domain gắn vào Render, **không** trỏ `phenau.com/api/py`.
-> Vercel chỉ áp env mới cho deployment mới ⇒ đổi xong phải redeploy.
+> **Không cần cấu hình URL nào.** Mọi route server ghép đường qua `lib/backend.ts`:
+> API = `${PHENAU_URL}/api/py/v1/...` (rewrite của phenau_v3 sang FastAPI), cổng đăng nhập
+> = `${PHENAU_URL}/coldbrew/authorize`. Host backend thật chỉ nằm trong env của frontend
+> Phê Nâu. Local chạy cả frontend Phê Nâu :3000 lẫn FastAPI :8000.
+> `PHENAU_URL` kèm path (vd `.../api/py`) bị báo lỗi thay vì ghép thành 404.
+> Coldbrew không tự khai rewrite trong `next.config` — BFF + allowlist vẫn là cửa duy nhất.
 
 `NEXT_PUBLIC_*` bị nhúng vào bundle tải về máy khách — **không đặt secret ở đó**.
 `NEXT_PUBLIC_PHIN_SDK_URL` chỉ là URL public để sinh mã nhúng, không phải credential.
-`BACKEND_URL` ở lại server. Coldbrew không cần cấu hình bất kỳ Clerk key nào.
+`PHENAU_URL` chỉ đọc ở server. Coldbrew không cần cấu hình bất kỳ Clerk key nào.
 
 ## Đăng nhập
 
@@ -215,11 +215,11 @@ làm ở tầng backend.
 
 ## Triển khai
 
-Vercel → import repo → set `BACKEND_URL`, `COLDBREW_AUTH_URL`,
-`NEXT_PUBLIC_AGENT_ID` và các biến brand → deploy. Trong giai đoạn canary, giữ thêm
-`PHENAU_API_KEY`, `APP_PASSWORD`, `SESSION_SECRET` và đặt
-`ALLOW_LEGACY_PASSWORD_LOGIN=1`; khi identity bridge ổn định thì tắt flag và xóa
-ba secret legacy. Tắt flag là cookie mật khẩu cũ hết hiệu lực ngay; xoá
-`SESSION_SECRET` không làm trang lỗi 500 (cookie cũ chỉ bị coi là không hợp lệ). Sau đó Domains → thêm domain của khách. Không cần cấu hình Clerk
+Vercel → import repo → set `NEXT_PUBLIC_AGENT_ID` và các biến brand → deploy. Trong giai
+đoạn canary, giữ thêm `PHENAU_API_KEY`, `APP_PASSWORD`, `SESSION_SECRET`; khi đăng nhập
+tài khoản ổn định thì xoá ba secret đó. Xoá `APP_PASSWORD` là cookie mật khẩu cũ hết hiệu
+lực ngay; xoá `SESSION_SECRET` không làm trang lỗi 500. Deployment cũ còn `BACKEND_URL` /
+`COLDBREW_AUTH_URL` / `ALLOW_LEGACY_PASSWORD_LOGIN` thì xoá đi — code không đọc nữa. Sau đó
+Domains → thêm domain của khách. Không cần cấu hình Clerk
 trên domain khách và không cần thêm origin vào CORS backend.
 Một khách một Vercel project, cùng repo, khác env.

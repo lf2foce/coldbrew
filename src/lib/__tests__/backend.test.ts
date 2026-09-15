@@ -1,33 +1,59 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-const { backendUrl } = await import("../backend.ts");
+const { authorizeUrl, backendApiUrl } = await import("../backend.ts");
 
-function withEnv(env: Record<string, string | undefined>, fn: () => void) {
-  const saved = Object.fromEntries(Object.keys(env).map((k) => [k, process.env[k]]));
-  Object.assign(process.env, env);
-  for (const [k, v] of Object.entries(env)) if (v === undefined) delete process.env[k];
+// process.env.NODE_ENV bị @types/node khai readonly; test cần đổi qua lại.
+const env = process.env as Record<string, string | undefined>;
+
+function withEnv(values: { PHENAU_URL?: string; NODE_ENV: string }, fn: () => void) {
+  const saved = { PHENAU_URL: env.PHENAU_URL, NODE_ENV: env.NODE_ENV };
+  for (const [k, v] of Object.entries({ PHENAU_URL: values.PHENAU_URL, NODE_ENV: values.NODE_ENV })) {
+    if (v === undefined) delete env[k];
+    else env[k] = v;
+  }
   try {
     fn();
   } finally {
     for (const [k, v] of Object.entries(saved)) {
-      if (v === undefined) delete process.env[k];
-      else process.env[k] = v;
+      if (v === undefined) delete env[k];
+      else env[k] = v;
     }
   }
 }
 
-test("production thiếu BACKEND_URL thì báo lỗi rõ, không rơi âm thầm về localhost", () => {
-  withEnv({ BACKEND_URL: undefined, NODE_ENV: "production" }, () => {
-    assert.throws(() => backendUrl(), /BACKEND_URL/);
+test("production không cần đặt URL nào: API và cổng đăng nhập đều là phenau.com", () => {
+  withEnv({ NODE_ENV: "production" }, () => {
+    assert.equal(backendApiUrl("/v1/conversations"), "https://phenau.com/api/py/v1/conversations");
+    assert.equal(authorizeUrl().toString(), "https://phenau.com/coldbrew/authorize");
   });
 });
 
-test("dev thiếu BACKEND_URL dùng localhost; có thì bỏ dấu / cuối", () => {
-  withEnv({ BACKEND_URL: undefined, NODE_ENV: "development" }, () => {
-    assert.equal(backendUrl(), "http://localhost:8000");
+test("local mặc định là frontend Phê Nâu :3000 (nó tự rewrite sang FastAPI :8000)", () => {
+  withEnv({ NODE_ENV: "development" }, () => {
+    assert.equal(backendApiUrl("/v1/users/me/principal"), "http://localhost:3000/api/py/v1/users/me/principal");
+    assert.equal(authorizeUrl().toString(), "http://localhost:3000/coldbrew/authorize");
   });
-  withEnv({ BACKEND_URL: "https://phenau-v3.onrender.com/", NODE_ENV: "production" }, () => {
-    assert.equal(backendUrl(), "https://phenau-v3.onrender.com");
+});
+
+test("PHENAU_URL đổi cả API lẫn cổng đăng nhập cùng lúc", () => {
+  withEnv({ NODE_ENV: "production", PHENAU_URL: "https://staging.phenau.com/" }, () => {
+    assert.equal(backendApiUrl("/v1/conversations"), "https://staging.phenau.com/api/py/v1/conversations");
+    assert.equal(authorizeUrl().origin, "https://staging.phenau.com");
+  });
+});
+
+test("PHENAU_URL kèm path hoặc sai định dạng bị báo lỗi rõ, không ghép thành 404", () => {
+  withEnv({ NODE_ENV: "production", PHENAU_URL: "https://phenau.com/api/py" }, () => {
+    assert.throws(() => backendApiUrl("/v1/conversations"), /chỉ là origin/);
+  });
+  withEnv({ NODE_ENV: "production", PHENAU_URL: "phenau.com" }, () => {
+    assert.throws(() => backendApiUrl("/v1/conversations"), /không hợp lệ/);
+  });
+});
+
+test("đường không theo dạng /v1/ bị từ chối", () => {
+  withEnv({ NODE_ENV: "production" }, () => {
+    assert.throws(() => backendApiUrl("/api/v1/conversations"), /\/v1\//);
   });
 });
