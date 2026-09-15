@@ -22,7 +22,7 @@
  */
 
 import { useEffect, useRef } from "react";
-import { API_PREFIX, authHeaders } from "./api";
+import { API_PREFIX, authHeaders, veDangNhapNeuHetPhien } from "./api";
 import type { Message } from "./types";
 
 const BACKOFF_MS = [1_000, 2_000, 4_000, 8_000, 15_000];
@@ -79,6 +79,8 @@ export function useConversationStream({
           attempt += 1;
           continue;
         }
+        // Phiên chết thì thử lại bao nhiêu lần cũng 401 — về đăng nhập, dừng vòng lặp.
+        if (veDangNhapNeuHetPhien(res)) return;
         if (!res.ok || !res.body) {
           attempt += 1;
           continue;

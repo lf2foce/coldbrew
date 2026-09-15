@@ -17,14 +17,28 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { ALLOWLIST_LEN, khop } from "@/lib/allowlist";
-import { hasUsableSession, isBrokerSession, SESSION_COOKIE, cungNguonGoc } from "@/lib/session";
+import { backendUrl } from "@/lib/backend";
+import {
+  cookieOptions,
+  cungNguonGoc,
+  hasUsableSession,
+  isBrokerSession,
+  SESSION_COOKIE,
+  SESSION_STATE_HEADER,
+} from "@/lib/session";
 
-const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8000";
+/** Phiên chết: xoá cookie + gắn header để client về /sign-in thay vì kẹt khung trống. */
+function phienHetHan() {
+  const res = NextResponse.json({ error: "Phiên đăng nhập đã hết hạn" }, { status: 401 });
+  res.headers.set(SESSION_STATE_HEADER, "expired");
+  res.cookies.set(SESSION_COOKIE, "", cookieOptions(0));
+  return res;
+}
 
 async function chuyenTiep(req: NextRequest, path: string[]) {
   const rawSession = req.cookies.get(SESSION_COOKIE)?.value;
   if (!(await hasUsableSession(rawSession))) {
-    return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+    return phienHetHan();
   }
   if (req.method !== "GET" && !cungNguonGoc(req)) {
     return NextResponse.json({ error: "Nguồn gốc không hợp lệ" }, { status: 403 });
@@ -47,7 +61,7 @@ async function chuyenTiep(req: NextRequest, path: string[]) {
     return NextResponse.json({ error: "Chưa cấu hình PHENAU_API_KEY" }, { status: 500 });
   }
 
-  const url = new URL(`/api${duong}`, BACKEND_URL);
+  const url = new URL(`/api${duong}`, backendUrl());
   url.search = req.nextUrl.search;
 
   const headers = new Headers();
@@ -63,6 +77,13 @@ async function chuyenTiep(req: NextRequest, path: string[]) {
     body: req.method === "GET" || req.method === "HEAD" ? undefined : await req.arrayBuffer(),
     redirect: "manual",
   });
+
+  // Cookie trang chỉ được kiểm HÌNH DẠNG; backend mới biết phiên broker còn sống không.
+  // 401 từ backend với phiên broker = phiên đã hết hạn/bị thu hồi/domain bị khoá.
+  if (brokerSession && res.status === 401) {
+    await res.body?.cancel();
+    return phienHetHan();
+  }
 
   const out = new NextResponse(res.body, { status: res.status });
   const resCt = res.headers.get("Content-Type");

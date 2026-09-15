@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { callbackReturnUrl, newState, STATE_COOKIE, stateCookieOptions, STATE_TTL_SECONDS } from "@/lib/oauth-state";
+
 export async function GET(req: NextRequest) {
   const authBase = (process.env.COLDBREW_AUTH_URL || "").trim();
   if (!authBase) {
@@ -11,7 +13,9 @@ export async function GET(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: "COLDBREW_AUTH_URL không hợp lệ" }, { status: 500 });
   }
-  const returnUrl = new URL("/auth/callback", req.nextUrl.origin);
-  authUrl.searchParams.set("return_url", returnUrl.toString());
-  return NextResponse.redirect(authUrl);
+  const state = newState();
+  authUrl.searchParams.set("return_url", callbackReturnUrl(req.nextUrl.origin, state));
+  const res = NextResponse.redirect(authUrl);
+  res.cookies.set(STATE_COOKIE, state, stateCookieOptions(STATE_TTL_SECONDS));
+  return res;
 }

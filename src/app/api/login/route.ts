@@ -7,7 +7,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { SESSION_COOKIE, cookieOptions, createSession, cungNguonGoc } from "@/lib/session";
+import { SESSION_COOKIE, cookieOptions, createSession, cungNguonGoc, legacyLoginEnabled } from "@/lib/session";
 
 /** Chặn dò mật khẩu. Một mật khẩu dùng chung, không giới hạn số lần thử, đứng
  *  trước một API key — đó là cánh cửa dò được. Đếm theo IP, cửa sổ trượt.
@@ -38,7 +38,7 @@ function bangNhau(a: string, b: string): boolean {
 }
 
 export async function POST(req: NextRequest) {
-  if (process.env.COLDBREW_AUTH_URL && process.env.ALLOW_LEGACY_PASSWORD_LOGIN !== "1") {
+  if (!legacyLoginEnabled()) {
     return NextResponse.json({ error: "Đăng nhập mật khẩu cũ đã tắt" }, { status: 410 });
   }
   const matKhauThat = process.env.APP_PASSWORD || "";

@@ -65,3 +65,31 @@ test("subdomain khác BỊ CHẶN — sameSite=lax không lo được ca này", 
 test("thiếu Origin lẫn Referer thì từ chối", () => {
   assert.equal(cungNguonGoc(req({ host: "khach.vn" })), false);
 });
+
+test("xoá SESSION_SECRET (runbook 41 bước 6) thì cookie cũ chỉ vô hiệu, KHÔNG ném lỗi", async () => {
+  const { value } = await createSession();
+  const secret = process.env.SESSION_SECRET;
+  delete process.env.SESSION_SECRET;
+  try {
+    // Bản đầu ném "SESSION_SECRET phải có ít nhất 32 ký tự" ⇒ proxy.ts trả 500 mọi trang.
+    assert.equal(await verifySession(value), false);
+    assert.equal(await hasUsableSession(value), false);
+  } finally {
+    process.env.SESSION_SECRET = secret;
+  }
+});
+
+test("đã chuyển sang identity bridge và tắt legacy thì cookie mật khẩu cũ hết tác dụng ngay", async () => {
+  const { value } = await createSession();
+  assert.ok(await hasUsableSession(value));
+  process.env.COLDBREW_AUTH_URL = "https://phenau.com";
+  try {
+    process.env.ALLOW_LEGACY_PASSWORD_LOGIN = "0";
+    assert.equal(await hasUsableSession(value), false, "cookie legacy vẫn dùng PHENAU_API_KEY sau khi tắt");
+    process.env.ALLOW_LEGACY_PASSWORD_LOGIN = "1";
+    assert.ok(await hasUsableSession(value), "canary bật lại legacy thì cookie hợp lệ");
+  } finally {
+    delete process.env.COLDBREW_AUTH_URL;
+    delete process.env.ALLOW_LEGACY_PASSWORD_LOGIN;
+  }
+});

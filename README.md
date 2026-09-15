@@ -19,7 +19,7 @@ pnpm dev                       # http://localhost:3005
 
 | Biến | Bắt buộc | Việc |
 |---|---|---|
-| `BACKEND_URL` | ✅ | Gốc API. **Cố định lúc BUILD** — xem cảnh báo dưới |
+| `BACKEND_URL` | ✅ | Gốc FastAPI mà server Coldbrew gọi thẳng. Đọc lúc xử lý request qua `lib/backend.ts` — xem cảnh báo dưới |
 | `COLDBREW_AUTH_URL` | ✅ | Cổng đăng nhập Phê Nâu trung tính: `https://phenau.com` |
 | `PHENAU_API_KEY` | rollout cũ | Key server-side dùng khi còn bật password legacy |
 | `APP_PASSWORD` | rollout cũ | Mật khẩu dùng chung; chỉ dùng khi bật legacy |
@@ -30,9 +30,10 @@ pnpm dev                       # http://localhost:3005
 | `NEXT_PUBLIC_BRAND_NAME` | ✅ | Tên hiện trên tab + màn đăng nhập |
 | `NEXT_PUBLIC_BRAND_ACCENT` | | Màu nhấn, mặc định `#1F4470` |
 
-> ⚠ **`BACKEND_URL` được cố định lúc `next build`**, không đọc lại lúc chạy.
-> Đổi env xong phải **build lại / redeploy**. Trên Vercel: set env **trước** lần
-> deploy đầu, nếu không proxy sẽ trỏ `localhost:8000`.
+> ⚠ **`BACKEND_URL` bắt buộc trên production.** Mọi route server đọc qua `lib/backend.ts`;
+> thiếu biến là báo lỗi rõ "Thiếu BACKEND_URL" (bản cũ rơi âm thầm về `localhost:8000`).
+> Trỏ thẳng Render hoặc custom domain gắn vào Render, **không** trỏ `phenau.com/api/py`.
+> Vercel chỉ áp env mới cho deployment mới ⇒ đổi xong phải redeploy.
 
 `NEXT_PUBLIC_*` bị nhúng vào bundle tải về máy khách — **không đặt secret ở đó**.
 `NEXT_PUBLIC_PHIN_SDK_URL` chỉ là URL public để sinh mã nhúng, không phải credential.
@@ -45,6 +46,16 @@ lập, sau đó backend cấp authorization code dùng một lần để Coldbre
 first-party. Session bị khóa theo `hostname + tenant + agent`, và quyền lấy trực
 tiếp từ `tenant_members` ở mỗi request. Clerk secret/publishable key không cần đặt
 trên domain khách.
+
+- **Domain phải được xác minh** (backend migration 133): khai hostname ở Phê Nâu →
+  thêm bản ghi TXT `_phenau-coldbrew.<hostname>` → bấm Kiểm tra DNS. Chưa xác minh thì
+  không cấp mã đăng nhập.
+- **`state` chống login CSRF**: `/api/login/start` đặt cookie `cb_oauth_state`
+  (httpOnly, path `/auth/callback`, 10 phút) và nhét state vào `return_url`; callback
+  không khớp cookie thì từ chối.
+- **Phiên hết hạn/bị thu hồi**: `inbox/layout.tsx` hỏi backend; 401 ⇒ `/auth/expired`
+  xoá cookie và về `/sign-in`. BFF gắn `X-Coldbrew-Session: expired` để client tự về
+  trang đăng nhập.
 
 Trong giai đoạn rollout có thể bật **mật khẩu dùng chung** (`APP_PASSWORD`), không có
 hệ tài khoản riêng từng người.
@@ -208,6 +219,7 @@ Vercel → import repo → set `BACKEND_URL`, `COLDBREW_AUTH_URL`,
 `NEXT_PUBLIC_AGENT_ID` và các biến brand → deploy. Trong giai đoạn canary, giữ thêm
 `PHENAU_API_KEY`, `APP_PASSWORD`, `SESSION_SECRET` và đặt
 `ALLOW_LEGACY_PASSWORD_LOGIN=1`; khi identity bridge ổn định thì tắt flag và xóa
-ba secret legacy. Sau đó Domains → thêm domain của khách. Không cần cấu hình Clerk
+ba secret legacy. Tắt flag là cookie mật khẩu cũ hết hiệu lực ngay; xoá
+`SESSION_SECRET` không làm trang lỗi 500 (cookie cũ chỉ bị coi là không hợp lệ). Sau đó Domains → thêm domain của khách. Không cần cấu hình Clerk
 trên domain khách và không cần thêm origin vào CORS backend.
 Một khách một Vercel project, cùng repo, khác env.

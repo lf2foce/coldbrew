@@ -3,7 +3,15 @@
 import { useState } from "react";
 import { BRAND } from "@/lib/brand";
 
-export function SignInClient({ authEnabled, legacyEnabled }: { authEnabled: boolean; legacyEnabled: boolean }) {
+export function SignInClient({
+  authEnabled,
+  legacyEnabled,
+  thongBao = "",
+}: {
+  authEnabled: boolean;
+  legacyEnabled: boolean;
+  thongBao?: string;
+}) {
   const [password, setPassword] = useState("");
   const [loi, setLoi] = useState("");
   const [dangGui, setDangGui] = useState(false);
@@ -34,6 +42,11 @@ export function SignInClient({ authEnabled, legacyEnabled }: { authEnabled: bool
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-4">
       <h1 className="text-xl font-semibold" style={{ color: BRAND.accent }}>{BRAND.name}</h1>
+      {thongBao && (
+        <p role="alert" className="w-full max-w-sm rounded-lg border px-3 py-2 text-[13px]" style={{ borderColor: "var(--wa-border)", color: "#c0392b" }}>
+          {thongBao}
+        </p>
+      )}
       {authEnabled && (
         <div className="w-full max-w-sm rounded-2xl border p-6 shadow-sm" style={{ borderColor: "var(--wa-border)", background: "var(--wa-panel)" }}>
           <a href="/api/login/start" className="block w-full rounded-lg py-2.5 text-center text-[15px] font-medium text-white" style={{ background: BRAND.accent }}>

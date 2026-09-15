@@ -66,6 +66,11 @@ export async function createSession(): Promise<{ value: string; maxAge: number }
 
 export async function verifySession(raw: string | undefined): Promise<boolean> {
   if (!raw) return false;
+  // Kiểm cookie KHÔNG được ném lỗi. Runbook 41 bước 6 xoá SESSION_SECRET sau khi chuyển
+  // sang identity bridge; bản đầu gọi thẳng secret() ⇒ ai còn cookie mật khẩu cũ (≤12h)
+  // nhận 500 trên MỌI trang, kể cả /sign-in (proxy.ts chạy trước), không tự thoát được.
+  // Thiếu secret = không có phiên mật khẩu nào hợp lệ. createSession() vẫn ném như cũ.
+  if ((process.env.SESSION_SECRET || "").length < 32) return false;
   const dot = raw.lastIndexOf(".");
   if (dot <= 0) return false;
   const payload = raw.slice(0, dot);
@@ -91,9 +96,21 @@ export function isBrokerSession(raw: string | undefined): raw is string {
   return Boolean(raw && /^cb_live_[A-Za-z0-9_-]{40,}$/.test(raw));
 }
 
-export async function hasUsableSession(raw: string | undefined): Promise<boolean> {
-  return isBrokerSession(raw) || verifySession(raw);
+/** Đăng nhập mật khẩu dùng chung còn được phép không — MỘT nơi quyết định cho route
+ *  /api/login, trang /sign-in lẫn việc nhận cookie cũ. */
+export function legacyLoginEnabled(): boolean {
+  return !process.env.COLDBREW_AUTH_URL?.trim() || process.env.ALLOW_LEGACY_PASSWORD_LOGIN === "1";
 }
+
+export async function hasUsableSession(raw: string | undefined): Promise<boolean> {
+  if (isBrokerSession(raw)) return true;
+  // Tắt legacy mà vẫn nhận cookie mật khẩu cũ = người đã bị "tắt" dùng tiếp
+  // PHENAU_API_KEY thêm tới 12 giờ.
+  return legacyLoginEnabled() && verifySession(raw);
+}
+
+/** Header BFF gắn khi phiên đã chết, để client biết mà về /sign-in (khác 401 vì lý do khác). */
+export const SESSION_STATE_HEADER = "X-Coldbrew-Session";
 
 export const SESSION_COOKIE = COOKIE;
 

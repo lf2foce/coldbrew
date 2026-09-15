@@ -17,6 +17,16 @@
 
 export const API_PREFIX = "/api/py/v1";
 
+/** BFF gắn `X-Coldbrew-Session: expired` khi phiên chết (hết hạn, bị thu hồi, domain bị
+ *  khoá). Về /sign-in ngay thay vì để màn hình kẹt với lỗi 401 ở từng ô. Chỉ theo header
+ *  này, không theo mọi 401 — 401 vì lý do khác (vd API key legacy hỏng) mà cũng đá ra
+ *  thì người dùng đăng nhập lại vẫn bị đá, thành vòng lặp. */
+export function veDangNhapNeuHetPhien(res: Response): boolean {
+  if (res.status !== 401 || res.headers.get("X-Coldbrew-Session") !== "expired") return false;
+  if (typeof window !== "undefined") window.location.href = "/sign-in?error=session_expired";
+  return true;
+}
+
 /** Giữ lại chữ ký cũ để chỗ gọi không phải sửa: nay không có header xác thực nào
  *  cần gắn ở client. Cookie phiên trình duyệt tự gửi kèm. */
 export async function authHeaders(): Promise<Record<string, string>> {
@@ -32,6 +42,7 @@ export function makeApi() {
       headers.set("Content-Type", "application/json");
     }
     const res = await fetch(`${API_PREFIX}${path}`, { ...init, headers });
+    if (veDangNhapNeuHetPhien(res)) throw new Error("Phiên đăng nhập đã hết hạn");
     if (!res.ok) {
       // GIỮ LẤY thông điệp của backend. Bản trước ném trần `HTTP 403`, trong khi
       // backend đã nói thẳng "API key missing scope: inbox:read" — mất câu đó thì
@@ -74,6 +85,7 @@ export function makeStreamApi() {
     }
     const url = path.startsWith("/api/") ? path : `${API_PREFIX}${path}`;
     const res = await fetch(url, { ...init, headers });
+    if (veDangNhapNeuHetPhien(res)) throw new Error("Phiên đăng nhập đã hết hạn");
     if (!res.ok || !res.body) {
       throw new Error(`HTTP ${res.status}: ${await res.text().catch(() => "")}`.trim());
     }

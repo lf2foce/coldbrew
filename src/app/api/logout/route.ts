@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { backendUrl } from "@/lib/backend";
 import { isBrokerSession, SESSION_COOKIE, cookieOptions, cungNguonGoc } from "@/lib/session";
-
-const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8000";
 
 export async function POST(req: NextRequest) {
   // Đăng xuất cũng là hành động ghi: không kiểm thì site khác ép người ta đăng
@@ -11,7 +10,7 @@ export async function POST(req: NextRequest) {
   }
   const token = req.cookies.get(SESSION_COOKIE)?.value;
   if (isBrokerSession(token)) {
-    await fetch(`${BACKEND_URL}/api/v1/coldbrew/auth/logout`, {
+    await fetch(`${backendUrl()}/api/v1/coldbrew/auth/logout`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
