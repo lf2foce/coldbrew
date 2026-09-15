@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { SESSION_COOKIE, verifySession } from "@/lib/session";
+import { hasUsableSession, SESSION_COOKIE } from "@/lib/session";
 
 /**
  * Next.js 16 đổi quy ước `middleware.ts` → `proxy.ts`.
@@ -11,7 +11,7 @@ import { SESSION_COOKIE, verifySession } from "@/lib/session";
  */
 export default async function proxy(req: NextRequest) {
   if (process.env.NEXT_PUBLIC_MOCK === "1") return NextResponse.next();
-  const ok = await verifySession(req.cookies.get(SESSION_COOKIE)?.value);
+  const ok = await hasUsableSession(req.cookies.get(SESSION_COOKIE)?.value);
   if (!ok && req.nextUrl.pathname.startsWith("/inbox")) {
     return NextResponse.redirect(new URL("/sign-in", req.url));
   }

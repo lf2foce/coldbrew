@@ -20,9 +20,11 @@ pnpm dev                       # http://localhost:3005
 | Biến | Bắt buộc | Việc |
 |---|---|---|
 | `BACKEND_URL` | ✅ | Gốc API. **Cố định lúc BUILD** — xem cảnh báo dưới |
-| `PHENAU_API_KEY` | ✅ | Key của workspace khách, đã gắn cứng tenant + agent |
-| `APP_PASSWORD` | ✅ | Mật khẩu vào app, **dùng chung** cả workspace |
-| `SESSION_SECRET` | ✅ | Ký cookie phiên, ≥32 ký tự, mỗi khách một giá trị |
+| `COLDBREW_AUTH_URL` | ✅ | Cổng đăng nhập Phê Nâu trung tính, ví dụ `https://app.phenau.com` |
+| `PHENAU_API_KEY` | rollout cũ | Key server-side dùng khi còn bật password legacy |
+| `APP_PASSWORD` | rollout cũ | Mật khẩu dùng chung; chỉ dùng khi bật legacy |
+| `ALLOW_LEGACY_PASSWORD_LOGIN` | không | `1` mới cho API password cũ hoạt động |
+| `SESSION_SECRET` | rollout cũ | Ký cookie password legacy, ≥32 ký tự |
 | `NEXT_PUBLIC_AGENT_ID` | ✅ | Agent app hiển thị (khớp agent trong key) |
 | `NEXT_PUBLIC_BRAND_NAME` | ✅ | Tên hiện trên tab + màn đăng nhập |
 | `NEXT_PUBLIC_BRAND_ACCENT` | | Màu nhấn, mặc định `#1F4470` |
@@ -32,11 +34,17 @@ pnpm dev                       # http://localhost:3005
 > deploy đầu, nếu không proxy sẽ trỏ `localhost:8000`.
 
 `NEXT_PUBLIC_*` bị nhúng vào bundle tải về máy khách — **không đặt secret ở đó**.
-`BACKEND_URL` và `CLERK_SECRET_KEY` không có tiền tố đó nên ở lại server.
+`BACKEND_URL` ở lại server. Coldbrew không cần cấu hình bất kỳ Clerk key nào.
 
 ## Đăng nhập
 
-**Một mật khẩu dùng chung cho cả workspace của khách** (`APP_PASSWORD`), không có
+Luồng production dùng **tài khoản nhân viên riêng**: Clerk xác thực ở domain trung
+lập, sau đó backend cấp authorization code dùng một lần để Coldbrew đổi lấy cookie
+first-party. Session bị khóa theo `hostname + tenant + agent`, và quyền lấy trực
+tiếp từ `tenant_members` ở mỗi request. Clerk secret/publishable key không cần đặt
+trên domain khách.
+
+Trong giai đoạn rollout có thể bật **mật khẩu dùng chung** (`APP_PASSWORD`), không có
 hệ tài khoản riêng từng người.
 
 Vì sao không Clerk: một Clerk production instance chỉ phục vụ **đúng một domain** —
@@ -45,7 +53,7 @@ Vì sao không Clerk: một Clerk production instance chỉ phục vụ **đúng
 dùng được nếu mỗi khách một Clerk app, kéo theo bẫy hai hàng `users` khi cùng một
 email đăng nhập ở hai instance. Chi tiết: runbook 36 bên `phenau_v3`.
 
-Cái giá đã chấp nhận, biết trước chứ không phải sót:
+Giới hạn dưới đây chỉ áp dụng khi còn bật password legacy:
 
 | | hệ quả | khi nào phải xử lý |
 |---|---|---|
@@ -71,7 +79,7 @@ chiếm — vẫn same-site và cookie vẫn được gửi kèm.
 Phản hồi chứa dữ liệu khách đều mang `Cache-Control: private, no-store`, để bấm Back
 sau khi đăng xuất không thấy lại hộp thư.
 
-Hàng rào có test: `pnpm test` (13 ca — allowlist chặn mặc định, không khớp tiền tố,
+Hàng rào có test: `npm test` (allowlist chặn mặc định, không khớp tiền tố,
 đổi mật khẩu giết phiên cũ, chặn subdomain).
 
 ## Hợp đồng với backend
@@ -99,6 +107,7 @@ Backend đổi hình dạng phản hồi ở bất kỳ dòng nào trong bảng 
 | `GET /v1/conversations/facets` | đếm theo kênh cho chip lọc |
 | `GET /v1/business/agents/{id}/quality?days&platforms` | tab Quản lý thông tin (`platforms` lặp lại cho từng nguồn) |
 | `GET /v1/agents/{id}/analytics/overview` | tab Thống kê web (Splitbee realtime) |
+| `GET /v1/agents/{id}/analytics/sites` | danh sách đơn vị báo cáo cho dropdown website |
 | `GET /v1/agents/{id}` | đọc cấu hình agent |
 | `PUT /v1/agents/{id}` | ghi luật vá (PUT, backend không có PATCH) |
 | `GET /v1/agents/{id}/channels` | kênh của agent + nấc trả lời |
@@ -106,8 +115,10 @@ Backend đổi hình dạng phản hồi ở bất kỳ dòng nào trong bảng 
 | `GET /v1/users/me/principal` | vai + quyền của tài khoản đang đăng nhập |
 | `POST /v1/agents/{id}/chat` | tab Chat thử (SSE, qua route riêng — KHÔNG qua proxy) |
 
-Xác thực: **`Authorization: Bearer <PHENAU_API_KEY>`**, do BFF proxy gắn ở server.
-Trình duyệt không cầm key, cũng không khai workspace — key đã gắn cứng tenant + agent.
+Xác thực production: BFF gửi opaque `cb_live_*` session và `X-Coldbrew-Host`; backend
+đối chiếu hostname, membership và agent. `PHENAU_API_KEY` chỉ còn là fallback rollout.
+Trình duyệt không cầm API key và không tự khai workspace — session do backend phát đã
+gắn cứng tenant + agent + hostname.
 Nghĩa là **không còn bí mật nào trong bundle tải về máy khách**.
 
 ## Bốn tab

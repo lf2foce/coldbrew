@@ -17,12 +17,13 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { ALLOWLIST_LEN, khop } from "@/lib/allowlist";
-import { SESSION_COOKIE, cungNguonGoc, verifySession } from "@/lib/session";
+import { hasUsableSession, isBrokerSession, SESSION_COOKIE, cungNguonGoc } from "@/lib/session";
 
 const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8000";
 
 async function chuyenTiep(req: NextRequest, path: string[]) {
-  if (!(await verifySession(req.cookies.get(SESSION_COOKIE)?.value))) {
+  const rawSession = req.cookies.get(SESSION_COOKIE)?.value;
+  if (!(await hasUsableSession(rawSession))) {
     return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
   }
   if (req.method !== "GET" && !cungNguonGoc(req)) {
@@ -40,8 +41,9 @@ async function chuyenTiep(req: NextRequest, path: string[]) {
     return NextResponse.json({ error: "Đường dẫn không được mở" }, { status: 403 });
   }
 
-  const apiKey = process.env.PHENAU_API_KEY || "";
-  if (!apiKey) {
+  const brokerSession = isBrokerSession(rawSession);
+  const credential = brokerSession ? rawSession : process.env.PHENAU_API_KEY || "";
+  if (!credential) {
     return NextResponse.json({ error: "Chưa cấu hình PHENAU_API_KEY" }, { status: 500 });
   }
 
@@ -49,7 +51,8 @@ async function chuyenTiep(req: NextRequest, path: string[]) {
   url.search = req.nextUrl.search;
 
   const headers = new Headers();
-  headers.set("Authorization", `Bearer ${apiKey}`);
+  headers.set("Authorization", `Bearer ${credential}`);
+  if (brokerSession) headers.set("X-Coldbrew-Host", req.nextUrl.hostname);
   headers.set("Accept", req.headers.get("Accept") || "application/json");
   const ct = req.headers.get("Content-Type");
   if (ct) headers.set("Content-Type", ct);

@@ -84,6 +84,17 @@ export async function verifySession(raw: string | undefined): Promise<boolean> {
   return vanTay === (await vanTayMatKhau());
 }
 
+/** Opaque session do backend Phê Nâu phát cho đúng nhân viên + tenant + hostname.
+ * Route ở Coldbrew chỉ kiểm hình dạng; backend luôn kiểm hash, hạn, membership và
+ * hostname ở mỗi request. */
+export function isBrokerSession(raw: string | undefined): raw is string {
+  return Boolean(raw && /^cb_live_[A-Za-z0-9_-]{40,}$/.test(raw));
+}
+
+export async function hasUsableSession(raw: string | undefined): Promise<boolean> {
+  return isBrokerSession(raw) || verifySession(raw);
+}
+
 export const SESSION_COOKIE = COOKIE;
 
 export function cookieOptions(maxAge: number) {

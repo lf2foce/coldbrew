@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { SESSION_COOKIE, verifySession } from "@/lib/session";
+import { hasUsableSession, SESSION_COOKIE } from "@/lib/session";
 
 /**
  * Chặn quyền Ở ĐÂY — ngay chỗ đọc dữ liệu, không ở proxy.
@@ -11,7 +11,7 @@ import { SESSION_COOKIE, verifySession } from "@/lib/session";
 export default async function InboxLayout({ children }: { children: React.ReactNode }) {
   if (process.env.NEXT_PUBLIC_MOCK !== "1") {
     const store = await cookies();
-    if (!(await verifySession(store.get(SESSION_COOKIE)?.value))) redirect("/sign-in");
+    if (!(await hasUsableSession(store.get(SESSION_COOKIE)?.value))) redirect("/sign-in");
   }
   return <>{children}</>;
 }

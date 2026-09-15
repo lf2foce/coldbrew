@@ -37,8 +37,7 @@ interface AnalyticsOverview {
   has_data: boolean;
   is_connected: boolean;
   last_received_at: string | null;
-  site_key: string;
-  allowed_origins: string[];
+  selected_site_id: string | null;
   active_users: number;
   today_visitors: number;
   today_pageviews: number;
@@ -59,6 +58,15 @@ interface AnalyticsOverview {
   }>;
 }
 
+interface AnalyticsSite {
+  id: string;
+  name: string;
+  slug: string;
+  site_key: string;
+  allowed_origins: string[];
+  is_active: boolean;
+}
+
 export function ReportPanel() {
   const [viewMode, setViewMode] = useState<"analytics" | "report">("analytics");
   const [timeRange, setTimeRange] = useState<"today" | "7d" | "30d">("7d");
@@ -67,6 +75,27 @@ export function ReportPanel() {
   const [loading, setLoading] = useState(false);
   const [showDemo, setShowDemo] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [sites, setSites] = useState<AnalyticsSite[]>([]);
+  const [selectedSiteId, setSelectedSiteId] = useState("all");
+
+  useEffect(() => {
+    if (!AGENT_ID) return;
+    const controller = new AbortController();
+    fetch(`/api/py/v1/agents/${encodeURIComponent(AGENT_ID)}/analytics/sites`, {
+      signal: controller.signal,
+    })
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return (await res.json()) as { sites: AnalyticsSite[] };
+      })
+      .then((data) => setSites(data.sites.filter((site) => site.is_active)))
+      .catch((error: unknown) => {
+        if (!(error instanceof DOMException && error.name === "AbortError")) {
+          setLoadError("Không tải được danh sách website.");
+        }
+      });
+    return () => controller.abort();
+  }, []);
 
   // Fetch real data from backend through Coldbrew's BFF proxy
   useEffect(() => {
@@ -80,8 +109,10 @@ export function ReportPanel() {
       inFlight = true;
       try {
         setLoading(true);
+        const query = new URLSearchParams({ range: timeRange });
+        if (selectedSiteId !== "all") query.set("site_id", selectedSiteId);
         const res = await fetch(
-          `/api/py/v1/agents/${encodeURIComponent(AGENT_ID)}/analytics/overview?range=${timeRange}`,
+          `/api/py/v1/agents/${encodeURIComponent(AGENT_ID)}/analytics/overview?${query}`,
           { signal: controller.signal },
         );
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -115,7 +146,7 @@ export function ReportPanel() {
       if (timer !== undefined) window.clearInterval(timer);
       document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [timeRange]);
+  }, [timeRange, selectedSiteId]);
 
   const hasRealData = Boolean(realData?.has_data);
   const isConnected = Boolean(realData?.is_connected);
@@ -238,7 +269,8 @@ export function ReportPanel() {
     }, 400);
   };
 
-  const tagSnippet = `<script async src="https://app.namdigital.vn/phin.js" data-site="${realData?.site_key || "PHIN-SITE-KEY"}"></script>`;
+  const selectedSite = sites.find((site) => site.id === selectedSiteId);
+  const tagSnippet = `<script async src="https://app.namdigital.vn/phin.js" data-site="${selectedSite?.site_key || "CHỌN-MỘT-WEBSITE"}"></script>`;
 
   return (
     <div className="flex h-full flex-col overflow-y-auto bg-[#f8fafc] p-4 sm:p-6" style={{ color: "var(--wa-text)" }}>
@@ -271,6 +303,20 @@ export function ReportPanel() {
           </div>
 
           <div className="flex items-center gap-2">
+            {viewMode === "analytics" && (
+              <select
+                aria-label="Website báo cáo"
+                value={selectedSiteId}
+                onChange={(event) => setSelectedSiteId(event.target.value)}
+                className="rounded-lg border bg-white px-2.5 py-2 text-[12.5px] font-medium text-slate-700"
+                style={{ borderColor: "var(--wa-border)" }}
+              >
+                <option value="all">Tất cả website</option>
+                {sites.map((site) => (
+                  <option key={site.id} value={site.id}>{site.name}</option>
+                ))}
+              </select>
+            )}
             {/* Chuyển chế độ: Web Analytics vs PDF Report */}
             <div className="flex rounded-lg border bg-white p-0.5 text-[12.5px] font-medium shadow-xs" style={{ borderColor: "var(--wa-border)" }}>
               <button

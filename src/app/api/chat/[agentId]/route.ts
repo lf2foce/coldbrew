@@ -14,7 +14,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { SESSION_COOKIE, cungNguonGoc, verifySession } from "@/lib/session";
+import { hasUsableSession, isBrokerSession, SESSION_COOKIE, cungNguonGoc } from "@/lib/session";
 import http from "node:http";
 import https from "node:https";
 import { URL } from "node:url";
@@ -28,14 +28,16 @@ export async function POST(
   const { agentId } = await params;
   // Cổng phiên: route này KHÔNG đi qua BFF proxy nên phải tự kiểm, nếu không nó
   // thành cửa sau bỏ qua đăng nhập.
-  if (!(await verifySession(request.cookies.get(SESSION_COOKIE)?.value))) {
+  const rawSession = request.cookies.get(SESSION_COOKIE)?.value;
+  if (!(await hasUsableSession(rawSession))) {
     return new NextResponse("Chưa đăng nhập", { status: 401 });
   }
   if (!cungNguonGoc(request)) {
     return new NextResponse("Nguồn gốc không hợp lệ", { status: 403 });
   }
-  const apiKey = process.env.PHENAU_API_KEY || "";
-  if (!apiKey) {
+  const brokerSession = isBrokerSession(rawSession);
+  const credential = brokerSession ? rawSession : process.env.PHENAU_API_KEY || "";
+  if (!credential) {
     return new NextResponse("Chưa cấu hình PHENAU_API_KEY", { status: 500 });
   }
   const body = Buffer.from(await request.arrayBuffer());
@@ -51,7 +53,8 @@ export async function POST(
           "Content-Type": request.headers.get("Content-Type") || "application/json",
           "Content-Length": String(body.byteLength),
           Accept: "text/event-stream",
-          Authorization: `Bearer ${apiKey}`,
+          Authorization: `Bearer ${credential}`,
+          ...(brokerSession ? { "X-Coldbrew-Host": request.nextUrl.hostname } : {}),
         },
       },
       (proxyRes) => {

@@ -11,7 +11,14 @@ import { test } from "node:test";
 process.env.SESSION_SECRET = "day-la-secret-du-32-ky-tu-cho-hmac-sha256";
 process.env.APP_PASSWORD = "mat-khau-mot";
 
-const { createSession, cungNguonGoc, verifySession } = await import("../session.ts");
+const { createSession, cungNguonGoc, hasUsableSession, isBrokerSession, verifySession } = await import("../session.ts");
+
+test("opaque session từ identity bridge được nhận dạng nhưng token bịa ngắn bị chặn", async () => {
+  const token = `cb_live_${"A".repeat(64)}`;
+  assert.ok(isBrokerSession(token));
+  assert.ok(await hasUsableSession(token));
+  assert.equal(isBrokerSession("cb_live_ngan"), false);
+});
 
 test("cookie do mình phát thì hợp lệ", async () => {
   const { value } = await createSession();
