@@ -98,6 +98,7 @@ Backend đổi hình dạng phản hồi ở bất kỳ dòng nào trong bảng 
 | `PATCH /v1/agents/{id}/tickets/{tid}` | đổi trạng thái ticket |
 | `GET /v1/conversations/facets` | đếm theo kênh cho chip lọc |
 | `GET /v1/business/agents/{id}/quality?days&platforms` | tab Quản lý thông tin (`platforms` lặp lại cho từng nguồn) |
+| `GET /v1/agents/{id}/analytics/overview` | tab Thống kê web (Splitbee realtime) |
 | `GET /v1/agents/{id}` | đọc cấu hình agent |
 | `PUT /v1/agents/{id}` | ghi luật vá (PUT, backend không có PATCH) |
 | `GET /v1/agents/{id}/channels` | kênh của agent + nấc trả lời |

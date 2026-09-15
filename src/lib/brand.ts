@@ -20,8 +20,10 @@ export const AGENT_ID = process.env.NEXT_PUBLIC_AGENT_ID || "";
 /** Cho phép sale nhập số tiền khi chốt đơn (chuyển sang 'Đã xong') */
 export const ENABLE_DEAL_REVENUE = process.env.NEXT_PUBLIC_ENABLE_DEAL_REVENUE !== "0";
 
-/** Hiển thị tab Báo cáo doanh thu & hiệu quả (tờ A4 / insight report) trên thanh rail. Mặc định: 0 (TẮT), đặt 1 = BẬT */
-export const ENABLE_INSIGHT_REPORT = process.env.NEXT_PUBLIC_ENABLE_INSIGHT_REPORT === "1";
+/** Hiển thị tab Báo cáo doanh thu & hiệu quả (tờ A4 / insight report) trên thanh rail. Mặc định: 0 (TẮT), đặt 1 = BẬT hoặc khi chạy mock */
+export const ENABLE_INSIGHT_REPORT =
+  process.env.NEXT_PUBLIC_ENABLE_INSIGHT_REPORT === "1" ||
+  process.env.NEXT_PUBLIC_MOCK === "1";
 
 // TENANT_ID đã bỏ: workspace nay lấy TỪ API KEY ở phía server, client không khai
 // nữa. Nhờ vậy cũng hết được cái bẫy cũ — dán nhầm id của DB dev lên production

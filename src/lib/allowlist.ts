@@ -30,6 +30,8 @@ export const ALLOWLIST: [string, string][] = [
   ["PATCH", "/v1/agents/:agent/tickets/:ticket"],
   // ── Quản lý thông tin ─────────────────────────────────────────────────────
   ["GET",   "/v1/business/agents/:agent/quality"],
+  // ── Thống kê web & chuyển đổi (Splitbee realtime / phin.js) ───────────────
+  ["GET",   "/v1/agents/:agent/analytics/overview"],
   // ── Cài đặt: đọc agent + ghi luật vá ──────────────────────────────────────
   // PUT chứ không PATCH: agents.py chỉ có @router.put. Bản trước gọi PATCH nên
   // luật vá chưa bao giờ lưu được, mọi lần bấm đều 405.
