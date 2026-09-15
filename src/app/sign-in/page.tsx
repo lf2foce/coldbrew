@@ -10,7 +10,10 @@ const THONG_BAO: Record<string, string> = {
 };
 
 export default async function SignInPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
-  // Cổng Phê Nâu luôn có. Form mật khẩu chỉ hiện khi deployment còn APP_PASSWORD.
+  // MỘT kiểu đăng nhập mỗi deployment, quyết bằng APP_PASSWORD:
+  //  · còn APP_PASSWORD ⇒ chỉ form mật khẩu (deployment cũ như HDX — nút tài khoản chưa có
+  //    domain xác minh, bấm vào chỉ ra lỗi);
+  //  · xoá APP_PASSWORD ⇒ chỉ nút "Đăng nhập tài khoản" qua phenau.com.
   const legacyEnabled = legacyLoginEnabled();
   const error = (await searchParams).error;
   return (

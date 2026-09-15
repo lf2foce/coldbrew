@@ -20,7 +20,7 @@ pnpm dev                       # http://localhost:3005
 | Biến | Bắt buộc | Việc |
 |---|---|---|
 | `PHENAU_URL` | không | Origin Phê Nâu cho cả API lẫn cổng đăng nhập. Mặc định production `https://phenau.com`, dev `http://localhost:3000` |
-| `APP_PASSWORD` | rollout cũ | Có giá trị ⇒ bật đăng nhập mật khẩu dùng chung; xoá ⇒ tắt |
+| `APP_PASSWORD` | rollout cũ | Có giá trị ⇒ CHỈ hiện form mật khẩu dùng chung; xoá ⇒ CHỈ hiện nút đăng nhập tài khoản qua phenau.com |
 | `PHENAU_API_KEY` | rollout cũ | Key server-side dùng khi còn đăng nhập mật khẩu |
 | `SESSION_SECRET` | rollout cũ | Ký cookie mật khẩu, ≥32 ký tự |
 | `NEXT_PUBLIC_AGENT_ID` | ✅ | Agent app hiển thị; phải khớp deployment và key legacy nếu còn dùng |
