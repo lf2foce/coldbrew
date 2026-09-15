@@ -16,6 +16,11 @@ export const BRAND = {
 
 export const AGENT_ID = process.env.NEXT_PUBLIC_AGENT_ID || "";
 
+/** SDK analytics public của Phê Nâu. Cho phép đổi CDN theo deployment nhưng
+ * tuyệt đối không trỏ vào domain white-label của khách. */
+export const PHIN_SDK_URL =
+  process.env.NEXT_PUBLIC_PHIN_SDK_URL || "https://phenau.com/phin.js";
+
 // Bật/tắt tính năng theo nhu cầu khách (mặc định 1 = BẬT, đặt 0 = TẮT)
 /** Cho phép sale nhập số tiền khi chốt đơn (chuyển sang 'Đã xong') */
 export const ENABLE_DEAL_REVENUE = process.env.NEXT_PUBLIC_ENABLE_DEAL_REVENUE !== "0";

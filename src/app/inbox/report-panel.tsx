@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AGENT_ID, BRAND } from "@/lib/brand";
+import { AGENT_ID, BRAND, PHIN_SDK_URL } from "@/lib/brand";
 
 interface CampaignStat {
   name: string;
@@ -270,7 +270,7 @@ export function ReportPanel() {
   };
 
   const selectedSite = sites.find((site) => site.id === selectedSiteId);
-  const tagSnippet = `<script async src="https://app.namdigital.vn/phin.js" data-site="${selectedSite?.site_key || "CHỌN-MỘT-WEBSITE"}"></script>`;
+  const tagSnippet = `<script async src="${PHIN_SDK_URL}" data-site="${selectedSite?.site_key || "CHỌN-MỘT-WEBSITE"}"></script>`;
 
   return (
     <div className="flex h-full flex-col overflow-y-auto bg-[#f8fafc] p-4 sm:p-6" style={{ color: "var(--wa-text)" }}>
