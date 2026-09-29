@@ -103,6 +103,7 @@ Nhân viên nghỉ việc thì Phê Nâu gỡ khỏi workspace, người đó m�
 | `NEXT_PUBLIC_BRAND_ACCENT` | `#1F4470` | Mã màu nhấn, dạng hex |
 | `NEXT_PUBLIC_ENABLE_DEAL_REVENUE` | bật | Ô nhập số tiền khi chuyển yêu cầu sang "Đã xong". Đặt `0` để tắt |
 | `NEXT_PUBLIC_ENABLE_INSIGHT_REPORT` | tắt | Đặt `1` để hiện tab Báo cáo |
+| `NEXT_PUBLIC_ENABLE_CITATIONS` | tắt | Hiển thị nguồn trích dẫn [1][2] và danh sách tệp ở đáy tin. Mặc định `0` (TẮT, sạch chữ như Facebook/Zalo), đặt `1` để bật lại |
 | `PHENAU_URL` | `https://phenau.com` | Chỉ đặt khi Phê Nâu yêu cầu trỏ môi trường khác |
 
 **Không đặt**

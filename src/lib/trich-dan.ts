@@ -27,6 +27,15 @@ import type { Citation } from "./types";
  * lớn có nguồn thứ 100 trở đi là mất chip. */
 export const RE_TRICH_DAN = /\[(\d+(?:\s*,\s*\d+)*)\]/g;
 
+/** Xoá các marker trích dẫn [1], [1, 2] khỏi văn bản khi tính năng trích dẫn bị tắt.
+ *  Chỉ xoá dấu ngoặc chứa số, không động tới ngoặc chứa chữ như [tham khảo] hay [Image]. */
+export function xoaDauTrichDan(content: string): string {
+  return content
+    .replace(/[ \t]*\[\d+(?:\s*,\s*\d+)*\]/g, "")
+    .replace(/^[ \t]+/gm, "")
+    .replace(/[ \t]{2,}/g, " ");
+}
+
 function tachSo(nhom: string): number[] {
   return nhom
     .split(",")

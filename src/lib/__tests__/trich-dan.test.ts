@@ -15,6 +15,7 @@ import {
   nguonHienThi,
   RE_TRICH_DAN,
   thuTuThamChieu,
+  xoaDauTrichDan,
 } from "../trich-dan.ts";
 import type { Citation } from "../types.ts";
 
@@ -169,4 +170,18 @@ test("KHÔNG marker nào (Facebook đã bị xoá) → hiện HẾT nguồn", ()
 test("không có citations thì danh sách rỗng", () => {
   assert.deepEqual(nguonHienThi("Dạ vâng ạ", []), []);
   assert.deepEqual(nguonHienThi("Dạ vâng ạ", undefined), []);
+});
+
+// ── Xoá marker khi tắt trích dẫn ───────────────────────────────────────────
+
+test("xoaDauTrichDan xoá marker đơn và nhóm, giữ sạch câu văn", () => {
+  assert.equal(xoaDauTrichDan("Giá [1] là 500k."), "Giá là 500k.");
+  assert.equal(xoaDauTrichDan("Dạ vâng [1, 2] ạ."), "Dạ vâng ạ.");
+  assert.equal(xoaDauTrichDan("[1] Bắt đầu câu."), "Bắt đầu câu.");
+  assert.equal(xoaDauTrichDan("Cuối câu rồi ạ. [3]"), "Cuối câu rồi ạ.");
+});
+
+test("xoaDauTrichDan KHÔNG xoá ngoặc vuông chứa chữ", () => {
+  assert.equal(xoaDauTrichDan("Giá [tham khảo] là 500k."), "Giá [tham khảo] là 500k.");
+  assert.equal(xoaDauTrichDan("Mục [A-1] trong bảng."), "Mục [A-1] trong bảng.");
 });

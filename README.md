@@ -32,6 +32,7 @@ pnpm dev                       # http://localhost:3005
 | `NEXT_PUBLIC_PHIN_SDK_URL` | không | SDK analytics public, mặc định `https://phenau.com/phin.js` |
 | `NEXT_PUBLIC_BRAND_NAME` | ✅ | Tên hiện trên tab + màn đăng nhập |
 | `NEXT_PUBLIC_BRAND_ACCENT` | | Màu nhấn, mặc định `#1F4470` |
+| `NEXT_PUBLIC_ENABLE_CITATIONS` | không | Bật `1` để hiện nguồn trích dẫn [1][2] và danh sách tệp; mặc định `0` (TẮT, sạch chữ như Facebook/Zalo) |
 
 > **Không cần cấu hình URL nào.** Mọi route server ghép đường qua `lib/backend.ts`:
 > API = `${PHENAU_URL}/api/py/v1/...` (rewrite của phenau_v3 sang FastAPI), cổng đăng nhập

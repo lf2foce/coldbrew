@@ -30,6 +30,9 @@ export const ENABLE_INSIGHT_REPORT =
   process.env.NEXT_PUBLIC_ENABLE_INSIGHT_REPORT === "1" ||
   process.env.NEXT_PUBLIC_MOCK === "1";
 
+/** Hiển thị nguồn trích dẫn [1][2] và danh sách tài liệu tham chiếu ở đáy tin nhắn. Mặc định: 0 (TẮT, sạch chữ như Facebook/Zalo), đặt 1 = BẬT */
+export const ENABLE_CITATIONS = process.env.NEXT_PUBLIC_ENABLE_CITATIONS === "1";
+
 // TENANT_ID đã bỏ: workspace nay lấy TỪ API KEY ở phía server, client không khai
 // nữa. Nhờ vậy cũng hết được cái bẫy cũ — dán nhầm id của DB dev lên production
 // thì hộp thư trống trơn mà không báo lỗi gì.

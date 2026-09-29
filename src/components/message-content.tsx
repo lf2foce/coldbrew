@@ -4,11 +4,13 @@ import { useState } from "react";
 
 import { TheNguon } from "./the-nguon";
 
+import { ENABLE_CITATIONS } from "@/lib/brand";
 import {
   catLatTrichDan,
   gomNguonTheoTep,
   moTaNguon,
   nguonHienThi,
+  xoaDauTrichDan,
 } from "@/lib/trich-dan";
 import type { Citation } from "@/lib/types";
 
@@ -120,11 +122,14 @@ export function MessageContent({
   ANH.lastIndex = 0;
 
   const day = (raw: string, key: string) => {
-    const chu = raw.replace(NHIEU, "").trim();
+    let chu = raw.replace(NHIEU, "").trim();
+    if (!ENABLE_CITATIONS) {
+      chu = xoaDauTrichDan(chu);
+    }
     if (chu) {
       phan.push(
         <span key={key} className="whitespace-pre-wrap">
-          {chenChip(chu, citations, key, moThe)}
+          {ENABLE_CITATIONS ? chenChip(chu, citations, key, moThe) : chu}
         </span>,
       );
     }
@@ -137,48 +142,49 @@ export function MessageContent({
   }
   day(content.slice(cuoi), "t-cuoi");
 
-  // Danh sách nguồn: `nguonHienThi` lo phần chọn — có marker thì chỉ nguồn được nhắc
-  // (đúng luật dashboard), không marker nào thì đưa hết (Facebook/Zalo đã bị backend
-  // xoá marker, đó là đường duy nhất để người trực biết trợ lý dựa vào đâu).
-  const tep = gomNguonTheoTep(nguonHienThi(content, citations));
-  if (tep.length) {
-    phan.push(
-      <span key="nguon" className="mt-1.5 flex flex-wrap items-center gap-1">
-        <span className="text-[11.5px]" style={{ color: "var(--wa-text-soft)" }}>
-          Nguồn:
-        </span>
-        {tep.map(({ khoa, nhan, nguon }, thu) => {
-          const the = (
-            <span
-              className="inline-block max-w-[190px] truncate rounded-full px-2 py-[2px] text-[11.5px]"
-              style={{ background: "var(--wa-panel-head)", color: "var(--wa-text-soft)" }}
-            >
-              {nhan}
-              {nguon.length > 1 ? ` · ${nguon.length} đoạn` : ""}
-            </span>
-          );
-          return (
-            <button
-              key={khoa}
-              type="button"
-              // Số trên thẻ = thứ tự trong CHÍNH hàng này. Ghi cứng 1 thì tệp nào
-              // bấm vào cũng ra "Nguồn 1", người đọc tưởng bấm nhầm.
-              onClick={(e) => moThe(nguon[0], thu + 1, e)}
-              title={moTaNguon(nguon[0], nguon[0].source_id)}
-              className="cursor-pointer transition hover:brightness-95"
-            >
-              {the}
-            </button>
-          );
-        })}
-      </span>,
-    );
+  // Danh sách nguồn: chỉ hiển thị khi tính năng trích dẫn được bật (ENABLE_CITATIONS).
+  // Mặc định tắt để giao diện sạch như Facebook/Zalo, không hiện thanh nguồn ở đáy.
+  if (ENABLE_CITATIONS) {
+    const tep = gomNguonTheoTep(nguonHienThi(content, citations));
+    if (tep.length) {
+      phan.push(
+        <span key="nguon" className="mt-1.5 flex flex-wrap items-center gap-1">
+          <span className="text-[11.5px]" style={{ color: "var(--wa-text-soft)" }}>
+            Nguồn:
+          </span>
+          {tep.map(({ khoa, nhan, nguon }, thu) => {
+            const the = (
+              <span
+                className="inline-block max-w-[190px] truncate rounded-full px-2 py-[2px] text-[11.5px]"
+                style={{ background: "var(--wa-panel-head)", color: "var(--wa-text-soft)" }}
+              >
+                {nhan}
+                {nguon.length > 1 ? ` · ${nguon.length} đoạn` : ""}
+              </span>
+            );
+            return (
+              <button
+                key={khoa}
+                type="button"
+                // Số trên thẻ = thứ tự trong CHÍNH hàng này. Ghi cứng 1 thì tệp nào
+                // bấm vào cũng ra "Nguồn 1", người đọc tưởng bấm nhầm.
+                onClick={(e) => moThe(nguon[0], thu + 1, e)}
+                title={moTaNguon(nguon[0], nguon[0].source_id)}
+                className="cursor-pointer transition hover:brightness-95"
+              >
+                {the}
+              </button>
+            );
+          })}
+        </span>,
+      );
+    }
   }
 
   return (
     <>
       {phan}
-      {dangXem && (
+      {ENABLE_CITATIONS && dangXem && (
         <TheNguon
           nguon={dangXem.nguon}
           soHien={dangXem.soHien}
