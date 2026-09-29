@@ -124,7 +124,7 @@ export function MessageContent({
   const day = (raw: string, key: string) => {
     let chu = raw.replace(NHIEU, "").trim();
     if (!ENABLE_CITATIONS) {
-      chu = xoaDauTrichDan(chu);
+      chu = xoaDauTrichDan(chu, citations);
     }
     if (chu) {
       phan.push(

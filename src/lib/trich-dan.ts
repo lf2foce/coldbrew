@@ -28,10 +28,21 @@ import type { Citation } from "./types";
 export const RE_TRICH_DAN = /\[(\d+(?:\s*,\s*\d+)*)\]/g;
 
 /** Xoá các marker trích dẫn [1], [1, 2] khỏi văn bản khi tính năng trích dẫn bị tắt.
- *  Chỉ xoá dấu ngoặc chứa số, không động tới ngoặc chứa chữ như [tham khảo] hay [Image]. */
-export function xoaDauTrichDan(content: string): string {
+ *  CHỈ xoá khi số trong ngoặc khớp với một citation thật của trợ lý.
+ *  Số do khách/nhân viên gõ (hoặc không khớp nguồn nào như mã phòng [102], mã đơn [12])
+ *  được giữ nguyên vẹn, không bị xoá nhầm. */
+export function xoaDauTrichDan(content: string, citations?: Citation[] | null): string {
+  const co = new Map((citations ?? []).map((c) => [Number(c.source_id), c]));
+  if (!co.size) return content;
+
   return content
-    .replace(/[ \t]*\[\d+(?:\s*,\s*\d+)*\]/g, "")
+    .replace(new RegExp(`[ \\t]*${RE_TRICH_DAN.source}`, "g"), (match, group) => {
+      const so = tachSo(group);
+      if (!so.length || so.some((n) => !co.has(n))) {
+        return match;
+      }
+      return "";
+    })
     .replace(/^[ \t]+/gm, "")
     .replace(/[ \t]{2,}/g, " ");
 }

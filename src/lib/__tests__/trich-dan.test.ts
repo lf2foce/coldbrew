@@ -174,14 +174,24 @@ test("không có citations thì danh sách rỗng", () => {
 
 // ── Xoá marker khi tắt trích dẫn ───────────────────────────────────────────
 
-test("xoaDauTrichDan xoá marker đơn và nhóm, giữ sạch câu văn", () => {
-  assert.equal(xoaDauTrichDan("Giá [1] là 500k."), "Giá là 500k.");
-  assert.equal(xoaDauTrichDan("Dạ vâng [1, 2] ạ."), "Dạ vâng ạ.");
-  assert.equal(xoaDauTrichDan("[1] Bắt đầu câu."), "Bắt đầu câu.");
-  assert.equal(xoaDauTrichDan("Cuối câu rồi ạ. [3]"), "Cuối câu rồi ạ.");
+test("xoaDauTrichDan chỉ xoá marker khớp với citations, giữ sạch câu văn", () => {
+  assert.equal(xoaDauTrichDan("Giá [1] là 500k.", NGUON), "Giá là 500k.");
+  assert.equal(xoaDauTrichDan("Dạ vâng [1, 2] ạ.", NGUON), "Dạ vâng ạ.");
+  assert.equal(xoaDauTrichDan("[1] Bắt đầu câu.", NGUON), "Bắt đầu câu.");
+  assert.equal(xoaDauTrichDan("Cuối câu rồi ạ. [1]", NGUON), "Cuối câu rồi ạ.");
+});
+
+test("xoaDauTrichDan KHÔNG xoá số trong ngoặc của khách hoặc số không thuộc citations", () => {
+  // Không có citations (tin khách, tin nhân viên) -> giữ nguyên 100%
+  assert.equal(xoaDauTrichDan("Phòng [102] toà A"), "Phòng [102] toà A");
+  assert.equal(xoaDauTrichDan("Đơn số [12345] ạ", null), "Đơn số [12345] ạ");
+  assert.equal(xoaDauTrichDan("Mã lô [12]", []), "Mã lô [12]");
+
+  // Có citations nhưng số không khớp nguồn -> giữ nguyên
+  assert.equal(xoaDauTrichDan("Phòng [102] xem ở [1].", NGUON), "Phòng [102] xem ở.");
 });
 
 test("xoaDauTrichDan KHÔNG xoá ngoặc vuông chứa chữ", () => {
-  assert.equal(xoaDauTrichDan("Giá [tham khảo] là 500k."), "Giá [tham khảo] là 500k.");
-  assert.equal(xoaDauTrichDan("Mục [A-1] trong bảng."), "Mục [A-1] trong bảng.");
+  assert.equal(xoaDauTrichDan("Giá [tham khảo] là 500k.", NGUON), "Giá [tham khảo] là 500k.");
+  assert.equal(xoaDauTrichDan("Mục [A-1] trong bảng.", NGUON), "Mục [A-1] trong bảng.");
 });
