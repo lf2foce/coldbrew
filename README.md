@@ -25,6 +25,7 @@ pnpm dev                       # http://localhost:3005
 > build cache). Thiếu `NEXT_PUBLIC_AGENT_ID` thì tiêu đề tab hiện "Hộp thư" và Chat thử báo
 > chưa cấu hình mã trợ lý.
 | `APP_PASSWORD` | rollout cũ | Có giá trị ⇒ CHỈ hiện form mật khẩu dùng chung; xoá ⇒ CHỈ hiện nút đăng nhập tài khoản qua phenau.com |
+| `APP_USERNAME` | tuỳ chọn | Đi kèm `APP_PASSWORD`. Có giá trị ⇒ form hỏi thêm tên đăng nhập; để trống ⇒ chỉ hỏi mật khẩu. Đặt/đổi/xoá đều giết mọi phiên đang mở |
 | `PHENAU_API_KEY` | rollout cũ | Key server-side dùng khi còn đăng nhập mật khẩu |
 | `SESSION_SECRET` | rollout cũ | Ký cookie mật khẩu, ≥32 ký tự |
 | `NEXT_PUBLIC_AGENT_ID` | ✅ | Agent app hiển thị; phải khớp deployment và key legacy nếu còn dùng |
@@ -62,7 +63,8 @@ trên domain khách.
   trang đăng nhập.
 
 Trong giai đoạn rollout có thể bật **mật khẩu dùng chung** (`APP_PASSWORD`), không có
-hệ tài khoản riêng từng người.
+hệ tài khoản riêng từng người. Đặt thêm `APP_USERNAME` thì form hỏi cả tên đăng nhập —
+vẫn là một tài khoản dùng chung, chỉ khó đoán hơn, **không** phải hệ tài khoản từng người.
 
 Vì sao không Clerk: một Clerk production instance chỉ phục vụ **đúng một domain** —
 đo 18/08/2026, origin `app.hdx.vn` → `origin_invalid`, mà subdomain cũng
@@ -81,10 +83,11 @@ Cookie phiên **được ký HMAC-SHA256** bằng `SESSION_SECRET`, `httpOnly` +
 hạn 12 giờ. Kiểu "so mật khẩu xong set `logged_in=1`" là vô nghĩa — ai cũng tự đặt
 cookie đó trong DevTools.
 
-Trong phần được ký có **cả hạn lẫn dấu vân tay của `APP_PASSWORD`**, nên **đổi mật
-khẩu là mọi phiên đang mở chết ngay**. Không có vân tay đó thì đổi mật khẩu chẳng
-đuổi được ai: cookie đã phát vẫn sống trọn 12 giờ — mà đổi mật khẩu chính là cách
-duy nhất thu hồi quyền ở mô hình dùng chung.
+Trong phần được ký có **cả hạn lẫn dấu vân tay của `APP_USERNAME` + `APP_PASSWORD`**,
+nên **đổi thông tin đăng nhập là mọi phiên đang mở chết ngay** — kể cả khi chỉ đổi mỗi
+tên, hay lần đầu thêm `APP_USERNAME` vào deployment đang chạy. Không có vân tay đó thì
+đổi chẳng đuổi được ai: cookie đã phát vẫn sống trọn 12 giờ — mà đổi thông tin đăng nhập
+chính là cách duy nhất thu hồi quyền ở mô hình dùng chung.
 
 Chặn dò mật khẩu: 8 lần sai / 10 phút theo IP, mỗi lần sai chậm 400ms; vào đúng thì
 xoá lịch sử sai của IP đó.

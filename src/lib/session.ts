@@ -43,17 +43,26 @@ async function sign(payload: string): Promise<string> {
   return b64url(new Uint8Array(sig));
 }
 
-/** Dấu vân tay của mật khẩu hiện hành — 12 ký tự hex đầu của HMAC.
+/** Dấu vân tay của THÔNG TIN ĐĂNG NHẬP hiện hành — 12 ký tự đầu của HMAC.
  *
- *  Có mặt để ĐỔI MẬT KHẨU LÀ ĐUỔI ĐƯỢC NGƯỜI RA. Bản đầu chỉ ký `<hết hạn>`, nên
- *  chữ ký chỉ phụ thuộc SESSION_SECRET: đổi APP_PASSWORD xong, cookie đã phát vẫn
- *  sống trọn 12 giờ. Mà đổi mật khẩu chính là cách duy nhất thu hồi quyền ở mô hình
- *  mật khẩu dùng chung (nhân viên nghỉ việc) — thu hồi mà không hiệu lực ngay thì
- *  coi như không thu hồi.
+ *  Có mặt để ĐỔI THÔNG TIN ĐĂNG NHẬP LÀ ĐUỔI ĐƯỢC NGƯỜI RA. Bản đầu chỉ ký
+ *  `<hết hạn>`, nên chữ ký chỉ phụ thuộc SESSION_SECRET: đổi APP_PASSWORD xong,
+ *  cookie đã phát vẫn sống trọn 12 giờ. Mà đổi thông tin đăng nhập chính là cách
+ *  duy nhất thu hồi quyền ở mô hình tài khoản dùng chung (nhân viên nghỉ việc) —
+ *  thu hồi mà không hiệu lực ngay thì coi như không thu hồi.
+ *
+ *  CẢ username LẪN mật khẩu đều nằm trong vân tay. Bỏ username ra là mở lại đúng
+ *  cái lỗ vừa bịt: đổi mỗi username thì mọi phiên cũ vẫn sống tiếp 12 giờ.
+ *
+ *  Ngăn cách bằng `\n` chứ không nối thẳng: `user="ab"+pass="c"` và `user="a"+pass="bc"`
+ *  nối thẳng ra cùng một chuỗi ⇒ cùng vân tay ⇒ đổi thông tin mà phiên cũ không chết.
+ *  `\n` không xuất hiện trong giá trị env một dòng nên không lẫn được.
  *
  *  Chỉ lưu vân tay chứ không lưu mật khẩu: cookie nằm ở máy khách. */
 async function vanTayMatKhau(): Promise<string> {
-  return (await sign(`pw:${process.env.APP_PASSWORD || ""}`)).slice(0, 12);
+  const u = process.env.APP_USERNAME || "";
+  const p = process.env.APP_PASSWORD || "";
+  return (await sign(`pw:${u}\n${p}`)).slice(0, 12);
 }
 
 /** Chuỗi cookie: `<hết hạn>.<vân tay mật khẩu>.<chữ ký>`. Cả hạn LẪN vân tay nằm
@@ -98,9 +107,56 @@ export function isBrokerSession(raw: string | undefined): raw is string {
 
 /** Đăng nhập mật khẩu dùng chung còn được phép không — MỘT nơi quyết định cho route
  *  /api/login, trang /sign-in lẫn việc nhận cookie cũ. Có `APP_PASSWORD` ⇒ bật; xoá
- *  `APP_PASSWORD` khỏi env ⇒ tắt, và cookie mật khẩu đã phát hết hiệu lực ngay. */
+ *  `APP_PASSWORD` khỏi env ⇒ tắt, và cookie mật khẩu đã phát hết hiệu lực ngay.
+ *
+ *  `APP_USERNAME` KHÔNG tham gia quyết định bật/tắt: nó là lớp phụ. Deployment cũ
+ *  chỉ có APP_PASSWORD vẫn đăng nhập được như trước — thêm username là việc của
+ *  từng deployment, không phải đợt đổi bắt buộc cho tất cả. */
 export function legacyLoginEnabled(): boolean {
   return Boolean(process.env.APP_PASSWORD);
+}
+
+/** So sánh thời-gian-hằng. Dùng `===` thì vòng lặp so chuỗi dừng ngay ký tự đầu khác
+ *  nhau — chênh lệch thời gian đó đo được qua mạng và cho phép mò từng ký tự một.
+ *
+ *  Độ dài vẫn lộ (thoát sớm khi khác độ dài): chấp nhận, vì che nó đòi băm trước khi so,
+ *  mà độ dài mật khẩu một mình gần như không rút ngắn được việc dò. */
+function bangNhau(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+/** Thông tin đăng nhập có khớp không — tách khỏi route để TEST ĐƯỢC.
+ *
+ *  Route `/api/login` còn mang theo rate-limit, kiểm nguồn gốc, đặt cookie và
+ *  `next/server`; nhập nhằng cả cụm đó thì phần quyết-định-cho-vào-hay-không không ai
+ *  chạy tới được trong test. Tách ra thì nó nằm cùng chỗ với `vanTayMatKhau` — MỘT file
+ *  đọc `APP_USERNAME`/`APP_PASSWORD`, không có bản sao nào đọc lệch đi.
+ *
+ *  Không có `APP_USERNAME` ⇒ bỏ qua phần tên: deployment cũ (HDX) chỉ đặt `APP_PASSWORD`
+ *  vẫn đăng nhập y như trước.
+ *
+ *  Tên đăng nhập cắt khoảng trắng hai đầu, mật khẩu thì KHÔNG. Người ta hay dán tên kèm
+ *  dấu cách thừa, mà tên không phải bí mật nên cắt không mất gì; còn cắt mật khẩu là tự ý
+ *  sửa bí mật của người khác — dấu cách cuối có thể do họ CỐ Ý. */
+export function thongTinDangNhapDung(username: string, password: string): boolean {
+  const tenThat = process.env.APP_USERNAME || "";
+  const matKhauThat = process.env.APP_PASSWORD || "";
+
+  // Tính CẢ HAI rồi mới AND — cố ý không `if (!dungTen) return false` ở trên. Thoát sớm ở
+  // tên là đáp nhanh hơn hẳn khi tên sai, đủ để người dò tách bài toán làm hai: mò ra tên
+  // trước (rẻ) rồi mới mò mật khẩu. Tách được thì thêm username chẳng thêm lớp nào.
+  const dungTen = !requiresUsername() || bangNhau(username.trim(), tenThat.trim());
+  const dungMatKhau = bangNhau(password, matKhauThat);
+  return dungTen && dungMatKhau;
+}
+
+/** Deployment này có đòi username không. Có `APP_USERNAME` ⇒ form hiện thêm ô và
+ *  route kiểm cả hai; không có ⇒ giữ nguyên hành vi cũ (chỉ mật khẩu). */
+export function requiresUsername(): boolean {
+  return Boolean(process.env.APP_USERNAME);
 }
 
 export async function hasUsableSession(raw: string | undefined): Promise<boolean> {

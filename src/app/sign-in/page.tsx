@@ -1,4 +1,4 @@
-import { legacyLoginEnabled } from "@/lib/session";
+import { legacyLoginEnabled, requiresUsername } from "@/lib/session";
 import { SignInClient } from "./sign-in-client";
 
 const THONG_BAO: Record<string, string> = {
@@ -15,10 +15,15 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
   //    domain xác minh, bấm vào chỉ ra lỗi);
   //  · xoá APP_PASSWORD ⇒ chỉ nút "Đăng nhập tài khoản" qua phenau.com.
   const legacyEnabled = legacyLoginEnabled();
+  // Client không đọc được env, nên cờ này phải đi từ server xuống. Tự đoán ở client
+  // (kiểu "cứ hiện ô username") là sai ở deployment chỉ có mật khẩu: người ta gõ vào ô
+  // mà server không kiểm, tưởng mình vừa thêm một lớp bảo vệ.
+  const doiTen = requiresUsername();
   const error = (await searchParams).error;
   return (
     <SignInClient
       legacyEnabled={legacyEnabled}
+      doiTen={doiTen}
       thongBao={error ? THONG_BAO[error] ?? "" : ""}
     />
   );

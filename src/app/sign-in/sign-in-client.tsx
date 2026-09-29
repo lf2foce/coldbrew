@@ -3,7 +3,17 @@
 import { useState } from "react";
 import { BRAND } from "@/lib/brand";
 
-export function SignInClient({ legacyEnabled, thongBao = "" }: { legacyEnabled: boolean; thongBao?: string }) {
+export function SignInClient({
+  legacyEnabled,
+  doiTen = false,
+  thongBao = "",
+}: {
+  legacyEnabled: boolean;
+  /** Deployment này có đòi tên đăng nhập không (server quyết, xem page.tsx). */
+  doiTen?: boolean;
+  thongBao?: string;
+}) {
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loi, setLoi] = useState("");
   const [dangGui, setDangGui] = useState(false);
@@ -16,7 +26,7 @@ export function SignInClient({ legacyEnabled, thongBao = "" }: { legacyEnabled: 
       const res = await fetch("/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify(doiTen ? { username, password } : { password }),
       });
       if (res.ok) {
         window.location.href = "/inbox";
@@ -49,10 +59,16 @@ export function SignInClient({ legacyEnabled, thongBao = "" }: { legacyEnabled: 
       )}
       {legacyEnabled && (
         <form onSubmit={guiDi} className="w-full max-w-sm rounded-2xl border p-6 shadow-sm" style={{ borderColor: "var(--wa-border)", background: "var(--wa-panel)" }}>
-          <label className="mb-2 block text-[14px] font-medium" style={{ color: "var(--wa-text)" }}>Mật khẩu truy cập</label>
-          <input type="password" autoFocus value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" className="w-full rounded-lg border px-3 py-2 text-[15px] outline-none" style={{ borderColor: "var(--wa-border-strong)", color: "var(--wa-text)" }} />
+          {doiTen && (
+            <>
+              <label htmlFor="cb-user" className="mb-2 block text-[14px] font-medium" style={{ color: "var(--wa-text)" }}>Tên đăng nhập</label>
+              <input id="cb-user" name="username" type="text" autoFocus value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" autoCapitalize="none" autoCorrect="off" spellCheck={false} className="mb-4 w-full rounded-lg border px-3 py-2 text-[15px] outline-none" style={{ borderColor: "var(--wa-border-strong)", color: "var(--wa-text)" }} />
+            </>
+          )}
+          <label htmlFor="cb-pass" className="mb-2 block text-[14px] font-medium" style={{ color: "var(--wa-text)" }}>Mật khẩu truy cập</label>
+          <input id="cb-pass" name="password" type="password" autoFocus={!doiTen} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" className="w-full rounded-lg border px-3 py-2 text-[15px] outline-none" style={{ borderColor: "var(--wa-border-strong)", color: "var(--wa-text)" }} />
           {loi && <p className="mt-2 text-[13px]" style={{ color: "#c0392b" }}>{loi}</p>}
-          <button type="submit" disabled={dangGui || !password} className="mt-4 w-full rounded-lg py-2 text-[15px] font-medium text-white disabled:opacity-50" style={{ background: BRAND.accent }}>
+          <button type="submit" disabled={dangGui || !password || (doiTen && !username.trim())} className="mt-4 w-full rounded-lg py-2 text-[15px] font-medium text-white disabled:opacity-50" style={{ background: BRAND.accent }}>
             {dangGui ? "Đang vào…" : "Vào hộp thư"}
           </button>
         </form>
