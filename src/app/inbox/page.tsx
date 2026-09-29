@@ -552,6 +552,13 @@ export default function InboxPage() {
     const q = query.trim().toLowerCase();
     let list = convs;
     if (filter === "unread") list = list.filter((c) => c.has_unread || c.status === "pending");
+    // "Nội bộ test" (external_api): chỉ hiện các cuộc test gõ tay từ Replit (thread_...)
+    // lọc bỏ các bài test script tự động (dkpt-..., uat-..., v13-...)
+    if (filter === "kenh:external_api") {
+      list = list.filter(
+        (c) => !c.external_thread_id || c.external_thread_id.startsWith("thread_"),
+      );
+    }
     // Khớp TÊN (client) hoặc khớp NỘI DUNG (backend) — thiếu vế thứ hai thì gõ
     // "sổ hồng" ra rỗng dù có hội thoại nhắc tới.
     if (q) list = list.filter((c) => tenHoiThoai(c).toLowerCase().includes(q) || hits.has(c.id));

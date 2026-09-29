@@ -59,17 +59,13 @@ test("Facebook đứng đầu, API ngoài xuống cuối", () => {
     "Web public 12",
     "Chưa đọc",
     "Tất cả",
-    "API ngoài 3324",
+    "Nội bộ test",
+    "Chat 40",
   ]);
 });
 
-test("chat thử KHÔNG xuất hiện trong chip hộp thư khách", () => {
-  const key = dungChip(FACETS, "khach").map(([k]) => k);
-  assert.ok(!key.includes("kenh:web"));
-});
-
 test("chế độ nội bộ chỉ có chip nội bộ", () => {
-  assert.deepEqual(dungChip(FACETS, "noibo").map(([, l]) => l), ["Tất cả", "Chat thử 40"]);
+  assert.deepEqual(dungChip(FACETS, "noibo").map(([, l]) => l), ["Tất cả", "Nội bộ test", "Chat 40"]);
 });
 
 // ── Chip mặc định ─────────────────────────────────────────────────────────
@@ -101,6 +97,8 @@ test("Facebook đứng đầu KỂ CẢ khi ít hội thoại hơn kênh khác",
     "Web public 300",
     "Chưa đọc",
     "Tất cả",
+    "Nội bộ test",
+    "Chat",
   ]);
 });
 

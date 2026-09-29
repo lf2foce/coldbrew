@@ -37,20 +37,30 @@ export function nguonCanHoi(filter: string, cheDo: CheDo): string[] {
   return cheDo === "noibo" ? NOI_BO : KHACH_HANG;
 }
 
-/** Dãy chip. Thứ tự CÓ CHỦ Ý, không phải theo số lượng:
+/** Dãy chip. Thứ tự CÓ CHỦ Ý:
  *
- *     kênh khách thật (Facebook trước) → Chưa đọc → Tất cả → API ngoài
+ *     kênh khách thật (Facebook trước) → Chưa đọc → Tất cả → Nội bộ test → Chat
  *
- * Việc thường ngày nằm bên trái, trong tầm ngón cái. "API ngoài" đẩy xuống cuối vì đó
- * là luồng hệ thống khác đổ vào, không phải kênh người trực chăm hằng ngày — xếp theo
- * số lượng thì nó nhảy lên đầu chỉ vì đông. */
+ * Ở chế độ nội bộ: Tất cả → Nội bộ test → Chat. */
 export function dungChip(facets: Facet[], cheDo: CheDo): [string, string][] {
   const laApi = (p: string) => p === "external_api";
-  const co = facets.filter(({ platform }) =>
-    cheDo === "noibo" ? laNoiBo(platform) : !laNoiBo(platform),
-  );
+  const webFacet = facets.find((x) => x.platform === "web");
+  const chatLabel = webFacet ? `Chat ${webFacet.count}` : "Chat";
+
+  if (cheDo === "noibo") {
+    const phechatFacet = facets.find((x) => x.platform === "phechat");
+    const phechatChip: [string, string][] =
+      phechatFacet && phechatFacet.count > 0 ? [["kenh:phechat", `PheChat ${phechatFacet.count}`]] : [];
+    return [
+      ["all", "Tất cả"],
+      ["kenh:external_api", "Nội bộ test"],
+      ["kenh:web", chatLabel],
+      ...phechatChip,
+    ];
+  }
+
+  const co = facets.filter(({ platform }) => !laNoiBo(platform));
   const chip = (x: Facet): [string, string] => [`kenh:${x.platform}`, `${nhanNguon(x.platform)} ${x.count}`];
-  if (cheDo === "noibo") return [["all", "Tất cả"], ...co.map(chip)];
 
   const uuTien = (p: string) => (p === "facebook" ? 0 : 1);
   const thuong = co
@@ -60,7 +70,8 @@ export function dungChip(facets: Facet[], cheDo: CheDo): [string, string][] {
     ...thuong.map(chip),
     ["unread", "Chưa đọc"],
     ["all", "Tất cả"],
-    ...co.filter((x) => laApi(x.platform)).map(chip),
+    ["kenh:external_api", "Nội bộ test"],
+    ["kenh:web", chatLabel],
   ];
 }
 

@@ -33,7 +33,7 @@ export const NHAN_NGUON: Record<string, string> = {
   lark: "Lark",
   telegram: "Telegram",
   phechat: "PheChat",
-  web: "Chat thử",
+  web: "Chat",
   web_public: "Web public",
   external_api: "API ngoài",
 };
@@ -77,6 +77,7 @@ export type Conversation = {
    *  trường này" là sai — nó có, chỉ khác tên và khác kiểu. */
   has_unread?: boolean;
   has_pending_draft?: boolean;
+  external_thread_id?: string | null;
 };
 
 /** Một nguồn trợ lý đã dựa vào. `source_id` chính là con số trong dấu `[1]` giữa câu
