@@ -35,16 +35,22 @@ export function xoaDauTrichDan(content: string, citations?: Citation[] | null): 
   const co = new Map((citations ?? []).map((c) => [Number(c.source_id), c]));
   if (!co.size) return content;
 
-  return content
-    .replace(new RegExp(`[ \\t]*${RE_TRICH_DAN.source}`, "g"), (match, group) => {
+  return content.replace(
+    new RegExp(`([ \\t]*)${RE_TRICH_DAN.source}([ \\t]*)`, "g"),
+    (match, truoc, group, sau, offset, str) => {
       const so = tachSo(group);
       if (!so.length || so.some((n) => !co.has(n))) {
         return match;
       }
+      if (offset === 0 || str[offset - 1] === "\n") {
+        return "";
+      }
+      if (truoc && sau) {
+        return " ";
+      }
       return "";
-    })
-    .replace(/^[ \t]+/gm, "")
-    .replace(/[ \t]{2,}/g, " ");
+    },
+  );
 }
 
 function tachSo(nhom: string): number[] {

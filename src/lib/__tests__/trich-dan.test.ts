@@ -191,6 +191,11 @@ test("xoaDauTrichDan KHÔNG xoá số trong ngoặc của khách hoặc số kh�
   assert.equal(xoaDauTrichDan("Phòng [102] xem ở [1].", NGUON), "Phòng [102] xem ở.");
 });
 
+test("xoaDauTrichDan giữ nguyên thụt lề danh sách và khoảng cách bảng", () => {
+  assert.equal(xoaDauTrichDan("  - Mục con [1]", NGUON), "  - Mục con");
+  assert.equal(xoaDauTrichDan("Cột A    Cột B [1]", NGUON), "Cột A    Cột B");
+});
+
 test("xoaDauTrichDan KHÔNG xoá ngoặc vuông chứa chữ", () => {
   assert.equal(xoaDauTrichDan("Giá [tham khảo] là 500k.", NGUON), "Giá [tham khảo] là 500k.");
   assert.equal(xoaDauTrichDan("Mục [A-1] trong bảng.", NGUON), "Mục [A-1] trong bảng.");
