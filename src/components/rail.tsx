@@ -79,8 +79,8 @@ const TOP_ITEMS: Muc[] = [
 const BOTTOM_ITEMS: Muc[] = [
   {
     key: "test",
-    label: "Chat thử với trợ lý",
-    nhan: "Chat thử",
+    label: "Chat với trợ lý",
+    nhan: "Chat",
     // Ngôi sao nói "yêu thích / đã ghim", không nói "chỗ thử nghiệm" — sai nghĩa hẳn.
     // Bình thí nghiệm thì ai nhìn cũng hiểu là chỗ làm thử, không đụng khách thật.
     icon: (

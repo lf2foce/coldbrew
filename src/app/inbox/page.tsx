@@ -68,7 +68,7 @@ function tenHoiThoai(c: { display_title?: string | null; title?: string | null }
   return c.display_title?.trim() || c.title?.trim() || "Khách chưa có tên";
 }
 
-type Filter = "all" | "unread" | `kenh:${string}`;
+type Filter = "all" | "unread" | "mode:noibo" | "mode:khach" | `kenh:${string}`;
 
 /** facebook và fb là cùng một kênh — gộp để không ra hai chip trùng nhau.
  *  Dashboard chính cũng gộp đúng cặp này (getConversationFilterKey). */
@@ -710,6 +710,18 @@ export default function InboxPage() {
                 <button
                   key={key}
                   onClick={() => {
+                    if (key === "mode:noibo") {
+                      setCheDo("noibo");
+                      setActiveId(null);
+                      setFilter("all");
+                      return;
+                    }
+                    if (key === "mode:khach") {
+                      setCheDo("khach");
+                      setActiveId(null);
+                      setFilter(chipMacDinh(kenhFacets, "khach") as Filter);
+                      return;
+                    }
                     daChonChip.current = true;
                     setFilter(key);
                   }}

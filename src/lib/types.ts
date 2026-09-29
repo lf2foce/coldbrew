@@ -33,7 +33,7 @@ export const NHAN_NGUON: Record<string, string> = {
   lark: "Lark",
   telegram: "Telegram",
   phechat: "PheChat",
-  web: "Chat thử",
+  web: "Chat",
   web_public: "Web public",
   external_api: "API ngoài",
 };

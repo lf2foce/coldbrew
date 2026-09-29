@@ -50,13 +50,26 @@ export function dungChip(facets: Facet[], cheDo: CheDo): [string, string][] {
     cheDo === "noibo" ? laNoiBo(platform) : !laNoiBo(platform),
   );
   const chip = (x: Facet): [string, string] => [`kenh:${x.platform}`, `${nhanNguon(x.platform)} ${x.count}`];
-  if (cheDo === "noibo") return [["all", "Tất cả"], ...co.map(chip)];
+  if (cheDo === "noibo") {
+    return [
+      ["mode:khach", "← Khách hàng"],
+      ["all", "Tất cả"],
+      ...co.map(chip),
+    ];
+  }
 
   const uuTien = (p: string) => (p === "facebook" ? 0 : 1);
   const thuong = co
     .filter((x) => !laApi(x.platform))
     .sort((a, b) => uuTien(a.platform) - uuTien(b.platform) || b.count - a.count);
+
+  const noiboCount = facets
+    .filter((x) => laNoiBo(x.platform))
+    .reduce((sum, x) => sum + x.count, 0);
+  const noiboLabel = noiboCount > 0 ? `Nội bộ test ${noiboCount}` : "Nội bộ test";
+
   return [
+    ["mode:noibo", noiboLabel],
     ...thuong.map(chip),
     ["unread", "Chưa đọc"],
     ["all", "Tất cả"],
