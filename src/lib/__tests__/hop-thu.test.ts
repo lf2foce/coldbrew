@@ -54,7 +54,6 @@ test("hộp thư nội bộ chỉ lấy nguồn nội bộ", () => {
 test("Facebook đứng đầu, API ngoài xuống cuối", () => {
   const nhan = dungChip(FACETS, "khach").map(([, l]) => l);
   assert.deepEqual(nhan, [
-    "Nội bộ test 40",
     "Facebook 12001",
     "Zalo 900",
     "Web public 12",
@@ -70,7 +69,7 @@ test("chat thử KHÔNG xuất hiện trong chip hộp thư khách", () => {
 });
 
 test("chế độ nội bộ chỉ có chip nội bộ", () => {
-  assert.deepEqual(dungChip(FACETS, "noibo").map(([, l]) => l), ["← Khách hàng", "Tất cả", "Chat 40"]);
+  assert.deepEqual(dungChip(FACETS, "noibo").map(([, l]) => l), ["Tất cả", "Chat thử 40"]);
 });
 
 // ── Chip mặc định ─────────────────────────────────────────────────────────
@@ -97,7 +96,6 @@ test("Facebook đứng đầu KỂ CẢ khi ít hội thoại hơn kênh khác",
     { platform: "web_public", count: 300 },
   ];
   assert.deepEqual(dungChip(it, "khach").map(([, l]) => l), [
-    "Nội bộ test",
     "Facebook 7",
     "Zalo 5000",
     "Web public 300",
