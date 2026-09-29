@@ -43,18 +43,18 @@ test("ĐỔI MẬT KHẨU thì mọi phiên cũ chết ngay", async () => {
 });
 
 test("ĐỔI TÊN ĐĂNG NHẬP cũng giết phiên cũ, y như đổi mật khẩu", async () => {
-  process.env.APP_USERNAME = "dkpt";
+  process.env.APP_USERNAME = "user-test";
   const { value } = await createSession();
   assert.ok(await verifySession(value), "cookie phải hợp lệ trước khi đổi");
 
-  process.env.APP_USERNAME = "dkpt-cu";
+  process.env.APP_USERNAME = "user-test-cu";
   assert.equal(
     await verifySession(value),
     false,
     "username không nằm trong vân tay ⇒ đổi tên mà phiên cũ vẫn sống 12 tiếng",
   );
 
-  process.env.APP_USERNAME = "dkpt";
+  process.env.APP_USERNAME = "user-test";
   assert.ok(await verifySession(value), "đặt lại tên cũ thì cookie hợp lệ trở lại");
   delete process.env.APP_USERNAME;
 });
@@ -64,7 +64,7 @@ test("THÊM username vào deployment đang chạy cũng đuổi phiên cũ ra", 
   const { value } = await createSession(); // phiên phát khi chưa có username
   assert.ok(await verifySession(value));
 
-  process.env.APP_USERNAME = "dkpt"; // siết bảo mật giữa chừng
+  process.env.APP_USERNAME = "user-test"; // siết bảo mật giữa chừng
   assert.equal(
     await verifySession(value),
     false,
@@ -94,7 +94,7 @@ test("APP_USERNAME chỉ bật lớp phụ, KHÔNG bật/tắt đăng nhập m�
   assert.ok(legacyLoginEnabled(), "deployment cũ chỉ có APP_PASSWORD vẫn phải đăng nhập được");
   assert.equal(requiresUsername(), false);
 
-  process.env.APP_USERNAME = "dkpt";
+  process.env.APP_USERNAME = "user-test";
   assert.ok(legacyLoginEnabled());
   assert.ok(requiresUsername());
   delete process.env.APP_USERNAME;
@@ -157,33 +157,33 @@ test("xoá APP_PASSWORD (tắt đăng nhập mật khẩu) thì cookie mật kh�
 
 test("KHÔNG đặt APP_USERNAME: deployment cũ vẫn vào bằng mỗi mật khẩu", () => {
   delete process.env.APP_USERNAME;
-  process.env.APP_PASSWORD = "dkpt2026";
-  assert.ok(thongTinDangNhapDung("", "dkpt2026"), "thêm username không được làm hỏng bản cũ");
-  assert.ok(thongTinDangNhapDung("gõ-bừa", "dkpt2026"), "chưa bật thì tên gõ gì cũng kệ");
+  process.env.APP_PASSWORD = "mat-khau-test-123";
+  assert.ok(thongTinDangNhapDung("", "mat-khau-test-123"), "thêm username không được làm hỏng bản cũ");
+  assert.ok(thongTinDangNhapDung("gõ-bừa", "mat-khau-test-123"), "chưa bật thì tên gõ gì cũng kệ");
   assert.equal(thongTinDangNhapDung("", "sai"), false);
 });
 
 test("CÓ APP_USERNAME: phải ĐÚNG CẢ HAI mới vào", () => {
-  process.env.APP_USERNAME = "dkpt";
-  process.env.APP_PASSWORD = "dkpt2026";
-  assert.ok(thongTinDangNhapDung("dkpt", "dkpt2026"));
+  process.env.APP_USERNAME = "user-test";
+  process.env.APP_PASSWORD = "mat-khau-test-123";
+  assert.ok(thongTinDangNhapDung("user-test", "mat-khau-test-123"));
 
   assert.equal(
-    thongTinDangNhapDung("", "dkpt2026"),
+    thongTinDangNhapDung("", "mat-khau-test-123"),
     false,
     "mật khẩu đúng mà bỏ trống tên vẫn vào = thêm ô cho vui, không thêm lớp nào",
   );
-  assert.equal(thongTinDangNhapDung("sai", "dkpt2026"), false, "client cũ gửi thiếu username thì phải BỊ CHẶN");
-  assert.equal(thongTinDangNhapDung("dkpt", "sai"), false);
-  assert.equal(thongTinDangNhapDung("dkpt2026", "dkpt"), false, "đảo hai ô cho nhau không được vào");
+  assert.equal(thongTinDangNhapDung("sai", "mat-khau-test-123"), false, "client cũ gửi thiếu username thì phải BỊ CHẶN");
+  assert.equal(thongTinDangNhapDung("user-test", "sai"), false);
+  assert.equal(thongTinDangNhapDung("mat-khau-test-123", "user-test"), false, "đảo hai ô cho nhau không được vào");
 });
 
 test("tên đăng nhập dính dấu cách vẫn vào, mật khẩu thì không tự cắt", () => {
-  process.env.APP_USERNAME = "dkpt";
-  process.env.APP_PASSWORD = "dkpt2026";
-  assert.ok(thongTinDangNhapDung("  dkpt ", "dkpt2026"), "dán tên kèm dấu cách là chuyện thường");
+  process.env.APP_USERNAME = "user-test";
+  process.env.APP_PASSWORD = "mat-khau-test-123";
+  assert.ok(thongTinDangNhapDung("  user-test ", "mat-khau-test-123"), "dán tên kèm dấu cách là chuyện thường");
   assert.equal(
-    thongTinDangNhapDung("dkpt", " dkpt2026 "),
+    thongTinDangNhapDung("user-test", " mat-khau-test-123 "),
     false,
     "cắt hộ mật khẩu là tự ý sửa bí mật của người ta",
   );
