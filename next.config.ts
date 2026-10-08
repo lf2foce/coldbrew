@@ -12,6 +12,12 @@ import type { NextConfig } from "next";
  * Thay bằng BFF proxy `src/app/api/py/[...path]/route.ts`: kiểm cookie phiên,
  * đối chiếu allowlist 19 đường, rồi mới gắn key ở phía server.
  */
-const nextConfig: NextConfig = {};
+const nextConfig: NextConfig = {
+  // Tự host trên VPS (Dokploy) thay vì Vercel: `standalone` gom server + đúng những
+  // node_modules cần lúc chạy vào `.next/standalone`, nên ảnh runtime không cần
+  // `pnpm install` lần nữa. Nó KHÔNG gom `public/` và `.next/static` — Dockerfile
+  // chép tay hai thứ đó.
+  output: "standalone",
+};
 
 export default nextConfig;
