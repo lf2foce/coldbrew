@@ -14,6 +14,12 @@ FROM node:24-alpine AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 COPY package.json pnpm-lock.yaml ./
+# `node-linker=hoisted`: BẮT BUỘC, không phải tối ưu. Mặc định pnpm dựng `node_modules`
+# thành rừng symlink trỏ vào kho `.pnpm/`, mà bộ truy vết của `output: standalone` đi theo
+# symlink thì chép thiếu file. Đo 08/10/2026: build XANH, ảnh xuất xong, rồi container
+# chết ngay khi chạy — `Cannot find module .../@swc/helpers/esm/_interop_require_default.js`.
+# Cài phẳng thì truy vết thấy file thật.
+RUN printf 'node-linker=hoisted\n' > .npmrc
 # Bản pnpm ghim theo lockfileVersion 9.0. Để corepack tự chọn thì một hôm pnpm ra bản
 # mới là lockfile bị viết lại giữa hai lần build giống nhau.
 RUN corepack enable && corepack prepare pnpm@10.18.0 --activate \
@@ -26,6 +32,9 @@ WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@10.18.0 --activate
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# `COPY . .` có thể đè .npmrc vừa viết ở tầng deps; đặt lại để mọi lệnh pnpm sau đây
+# cùng dùng một kiểu dựng node_modules.
+RUN printf 'node-linker=hoisted\n' > .npmrc
 
 ARG NEXT_PUBLIC_AGENT_ID
 ARG NEXT_PUBLIC_BRAND_NAME
@@ -64,6 +73,32 @@ ENV NODE_OPTIONS=--max-old-space-size=2048
 
 # Chạy test + typecheck TRƯỚC khi build: ảnh không dựng được từ cây code đang đỏ.
 RUN pnpm test && pnpm typecheck && pnpm build
+
+# CỬA CHẶN: thật sự KHỞI ĐỘNG server standalone rồi gọi một trang.
+#
+# Vì sao cần: `next build` xanh KHÔNG chứng minh bản standalone chạy được. Hai thứ đó
+# dùng hai cây node_modules khác nhau — build dùng cây đầy đủ, còn standalone dùng cây
+# do bộ truy vết chép lại. Thiếu file trong cây chép chỉ lộ ra lúc `node server.js`.
+# Đo 08/10/2026: build xanh, ảnh xuất xong, Dokploy báo "done", mà service 0/1 vì
+# MODULE_NOT_FOUND — tức mọi tín hiệu xanh đều ở sai chỗ cần đo.
+#
+# Chép `.next/static` vào trước khi chạy: đây đúng là bước Dockerfile hay quên, nên để
+# lần chạy thử đi qua cùng một cấu trúc thư mục với lúc chạy thật.
+RUN cp -r .next/static .next/standalone/.next/static \
+ && cp -r public .next/standalone/public \
+ && cd .next/standalone \
+ && (PORT=3000 HOSTNAME=127.0.0.1 node server.js & echo $! > /tmp/pid) \
+ && for i in $(seq 1 30); do \
+      code=$(node -e "fetch('http://127.0.0.1:3000/sign-in').then(r=>console.log(r.status)).catch(()=>console.log(0))" 2>/dev/null); \
+      [ "$code" = "200" ] && break; sleep 1; \
+    done; \
+    kill "$(cat /tmp/pid)" 2>/dev/null; \
+    if [ "$code" != "200" ]; then \
+      echo "LỖI: bản standalone không phục vụ được /sign-in (nhận '$code')."; \
+      echo "     Hay gặp nhất: node_modules thiếu file vì pnpm dựng bằng symlink."; \
+      echo "     Kiểm: node-linker=hoisted còn trong .npmrc không."; exit 1; \
+    fi; \
+    echo "chạy thử standalone: /sign-in trả 200 ✓"
 
 # ─────────────────────────── 3. chạy ───────────────────────────
 FROM node:24-alpine AS runner
