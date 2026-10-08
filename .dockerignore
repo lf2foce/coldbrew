@@ -9,5 +9,9 @@ node_modules
 !.env.example
 *.log
 .DS_Store
-README.md
+# ⚠ KHÔNG loại README.md. `allowlist.test.ts` đọc bảng đường API trong đó để canh
+# "mở thêm cửa mà không ghi vào tài liệu là đỏ", và `pnpm test` chạy TRONG ảnh. Loại nó
+# ra là test chết vì ENOENT — đã dính đúng thế ở lần build đầu 08/10/2026. Sửa bằng cách
+# giữ file lại, KHÔNG phải bằng cách cho test bỏ qua khi thiếu README: guard có điều kiện
+# là guard không còn canh gì.
 docs
