@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { publicHostname, publicOrigin, publicUrl } from "@/lib/public-origin";
+
 import { backendApiUrl } from "@/lib/backend";
 import { callbackReturnUrl, STATE_COOKIE, stateCookieOptions, stateMatches } from "@/lib/oauth-state";
 import { cookieOptions, SESSION_COOKIE } from "@/lib/session";
 
 function veDangNhap(req: NextRequest, error: string) {
-  const res = NextResponse.redirect(new URL(`/sign-in?error=${error}`, req.url));
+  const res = NextResponse.redirect(publicUrl(`/sign-in?error=${error}`, req));
   res.cookies.set(STATE_COOKIE, "", stateCookieOptions(0));
   return res;
 }
@@ -25,8 +27,8 @@ export async function GET(req: NextRequest) {
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify({
       code,
-      hostname: req.nextUrl.hostname,
-      return_url: callbackReturnUrl(req.nextUrl.origin, state as string),
+      hostname: publicHostname(req),
+      return_url: callbackReturnUrl(publicOrigin(req), state as string),
     }),
     cache: "no-store",
   });
@@ -37,7 +39,7 @@ export async function GET(req: NextRequest) {
   if (!data.session_token || !data.expires_in) {
     return veDangNhap(req, "invalid_session");
   }
-  const response = NextResponse.redirect(new URL("/inbox", req.url));
+  const response = NextResponse.redirect(publicUrl("/inbox", req));
   response.cookies.set(SESSION_COOKIE, data.session_token, cookieOptions(data.expires_in));
   response.cookies.set(STATE_COOKIE, "", stateCookieOptions(0));
   return response;

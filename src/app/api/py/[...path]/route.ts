@@ -16,6 +16,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+
+import { publicHostname } from "@/lib/public-origin";
 import { ALLOWLIST_LEN, khop } from "@/lib/allowlist";
 import { backendApiUrl } from "@/lib/backend";
 import {
@@ -66,7 +68,7 @@ async function chuyenTiep(req: NextRequest, path: string[]) {
 
   const headers = new Headers();
   headers.set("Authorization", `Bearer ${credential}`);
-  if (brokerSession) headers.set("X-Coldbrew-Host", req.nextUrl.hostname);
+  if (brokerSession) headers.set("X-Coldbrew-Host", publicHostname(req));
   headers.set("Accept", req.headers.get("Accept") || "application/json");
   const ct = req.headers.get("Content-Type");
   if (ct) headers.set("Content-Type", ct);

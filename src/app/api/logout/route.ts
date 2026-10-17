@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+
+import { publicHostname } from "@/lib/public-origin";
 import { backendApiUrl } from "@/lib/backend";
 import { isBrokerSession, SESSION_COOKIE, cookieOptions, cungNguonGoc } from "@/lib/session";
 
@@ -14,7 +16,7 @@ export async function POST(req: NextRequest) {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
-        "X-Coldbrew-Host": req.nextUrl.hostname,
+        "X-Coldbrew-Host": publicHostname(req),
       },
       cache: "no-store",
     }).catch(() => undefined);

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { publicHostname, publicUrl } from "@/lib/public-origin";
+
 import { brokerSessionAlive } from "@/lib/broker-session";
 import { cookieOptions, hasUsableSession, isBrokerSession, SESSION_COOKIE } from "@/lib/session";
 
@@ -12,12 +14,12 @@ import { cookieOptions, hasUsableSession, isBrokerSession, SESSION_COOKIE } from
 export async function GET(req: NextRequest) {
   const raw = req.cookies.get(SESSION_COOKIE)?.value;
   const conSong = isBrokerSession(raw)
-    ? await brokerSessionAlive(raw, req.nextUrl.hostname)
+    ? await brokerSessionAlive(raw, publicHostname(req))
     : await hasUsableSession(raw); // cookie mật khẩu còn hợp lệ cũng không bị xoá qua GET
   if (conSong) {
-    return NextResponse.redirect(new URL("/inbox", req.url));
+    return NextResponse.redirect(publicUrl("/inbox", req));
   }
-  const res = NextResponse.redirect(new URL("/sign-in?error=session_expired", req.url));
+  const res = NextResponse.redirect(publicUrl("/sign-in?error=session_expired", req));
   if (raw) res.cookies.set(SESSION_COOKIE, "", cookieOptions(0));
   return res;
 }

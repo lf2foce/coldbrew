@@ -14,6 +14,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+
+import { publicHostname } from "@/lib/public-origin";
 import { backendApiUrl } from "@/lib/backend";
 import {
   cookieOptions,
@@ -60,7 +62,7 @@ export async function POST(
           "Content-Length": String(body.byteLength),
           Accept: "text/event-stream",
           Authorization: `Bearer ${credential}`,
-          ...(brokerSession ? { "X-Coldbrew-Host": request.nextUrl.hostname } : {}),
+          ...(brokerSession ? { "X-Coldbrew-Host": publicHostname(request) } : {}),
         },
       },
       (proxyRes) => {
