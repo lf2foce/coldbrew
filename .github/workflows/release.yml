@@ -52,9 +52,17 @@ jobs:
             enable_deal_revenue: ""
             enable_insight_report: ""
             hook_secret: DOKPLOY_DEPLOY_HOOK_DKPT
-          # BDSRadar (chatbot.bdsradar.com) CHƯA ở đây: vẫn chạy project Vercel `namdigital`
-          # (deploy tay 29/09, không nối git). Giá trị ENABLE_DEAL_REVENUE / ENABLE_INSIGHT_REPORT
-          # và secret runtime trên Vercel bị mã hoá — cần chủ dự án xác nhận trước khi chuyển.
+          # BDSRadar — chatbot.bdsradar.com. Giá trị chép từ project Vercel `namdigital` (17/10/2026).
+          # Đăng nhập kiểu broker (phiên cb_live_ do backend Phê Nâu cấp, gắn hostname) ⇒ app
+          # không cần secret runtime nào; giữ nguyên hostname khi chuyển là nhân viên dùng tiếp.
+          - brand: bdsradar
+            site: https://chatbot.bdsradar.com
+            agent_id: 3cd98adc-5310-41cc-a899-bdc0c552a776
+            brand_name: BDSRadar
+            accent: "#1F4470"
+            enable_deal_revenue: "1"
+            enable_insight_report: "1"
+            hook_secret: DOKPLOY_DEPLOY_HOOK_BDSRADAR
     env:
       IMAGE: ghcr.io/lf2foce/coldbrew-${{ matrix.brand }}
     steps:
