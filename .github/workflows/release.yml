@@ -1,0 +1,120 @@
+# Mỗi lần push lên main: với TỪNG brand white-label, dựng ảnh trên máy GitHub, đẩy lên GHCR,
+# rồi gọi webhook Dokploy của brand đó kéo về.
+#
+# Vì sao KHÔNG build trên VPS: từ 11/10/2026 DB PROD `phenau-pg` chạy chung máy với Dokploy.
+# Một lần build coldbrew ăn tới 2GB heap, tức tranh RAM thẳng với DB PROD. Đẩy phần nặng ra máy
+# GitHub thì VPS chỉ còn việc kéo ảnh về.
+#
+# Vì sao mỗi brand một ảnh: `NEXT_PUBLIC_*` được NHÚNG vào bundle lúc build (không đọc lúc
+# chạy), nên tên brand, agent, màu… phải là build-arg — một ảnh chỉ phục vụ được một brand.
+# Toàn bộ giá trị trong ma trận là CÔNG KHAI (vốn nằm trong JS trình duyệt tải về). Bí mật
+# (APP_PASSWORD, SESSION_SECRET, PHENAU_API_KEY) là env runtime trong Dokploy, không qua đây.
+#
+# Thêm brand: thêm một mục `include`, tạo app Dokploy dùng ảnh `ghcr.io/lf2foce/coldbrew-<brand>`
+# (nguồn Docker image, tag latest), rồi đặt secret webhook của app đó với đúng tên `hook_secret`.
+# Chưa có secret ⇒ ảnh vẫn đẩy lên GHCR nhưng bước deploy bỏ qua (kèm notice), không đỏ.
+#
+# Chi phí: repo PUBLIC ⇒ máy GitHub-hosted không tính phút; gói GHCR public không tính dung lượng.
+# `pnpm test`, `typecheck`, `build` và cú chạy thử `node server.js` đều nằm TRONG Dockerfile,
+# nên ảnh không đẩy lên được từ cây code đỏ — không cần job CI riêng.
+name: release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Một lần phát hành tại một thời điểm; push mới chờ chứ không cắt ngang một lần deploy.
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  release:
+    name: release (${{ matrix.brand }})
+    runs-on: ubuntu-24.04
+    permissions: { contents: read, packages: write }
+    environment: { name: "production-${{ matrix.brand }}", url: "${{ matrix.site }}" }
+    strategy:
+      # Một brand hỏng không chặn brand khác lên.
+      fail-fast: false
+      matrix:
+        include:
+          # HDX / DKPT — chatbot.dkpt.vn, chạy VPS từ 16/10/2026.
+          - brand: dkpt
+            site: https://chatbot.dkpt.vn
+            agent_id: 35a953a6-9cdb-43fb-afe0-76c053e5b739
+            brand_name: HDX
+            accent: "#1F4470"
+            # Trống = mặc định trong src/lib/brand.ts (ghi tiền chốt đơn BẬT, tab báo cáo TẮT).
+            enable_deal_revenue: ""
+            enable_insight_report: ""
+            hook_secret: DOKPLOY_DEPLOY_HOOK_DKPT
+          # BDSRadar (chatbot.bdsradar.com) CHƯA ở đây: vẫn chạy project Vercel `namdigital`
+          # (deploy tay 29/09, không nối git). Giá trị ENABLE_DEAL_REVENUE / ENABLE_INSIGHT_REPORT
+          # và secret runtime trên Vercel bị mã hoá — cần chủ dự án xác nhận trước khi chuyển.
+    env:
+      IMAGE: ghcr.io/lf2foce/coldbrew-${{ matrix.brand }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=raw,value=latest
+            type=sha,prefix=sha-,format=short
+          labels: |
+            org.opencontainers.image.title=coldbrew-${{ matrix.brand }}
+            org.opencontainers.image.description=Hộp thư white-label (${{ matrix.site }})
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc
+        with:
+          context: .
+          # VPS là x86_64 (đo 16/10/2026). Không dựng arm64: thêm thời gian mà không ai chạy.
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            NEXT_PUBLIC_AGENT_ID=${{ matrix.agent_id }}
+            NEXT_PUBLIC_BRAND_NAME=${{ matrix.brand_name }}
+            NEXT_PUBLIC_BRAND_ACCENT=${{ matrix.accent }}
+            NEXT_PUBLIC_MOCK=0
+            NEXT_PUBLIC_PHIN_SDK_URL=https://phenau.com/phin.js
+            NEXT_PUBLIC_ENABLE_DEAL_REVENUE=${{ matrix.enable_deal_revenue }}
+            NEXT_PUBLIC_ENABLE_INSIGHT_REPORT=${{ matrix.enable_insight_report }}
+            GIT_SHA=${{ github.sha }}
+          cache-from: type=gha,scope=coldbrew-${{ matrix.brand }}
+          cache-to: type=gha,scope=coldbrew-${{ matrix.brand }},mode=max
+
+      # Hook deploy của app trong Dokploy: kéo :latest rồi khởi động lại. Sau đó CHỜ tới khi site
+      # báo đúng commit vừa push. "Dokploy báo done" không đủ: lần dựng đầu 08/10/2026 Dokploy
+      # báo done trong khi container chết ngay lúc khởi động.
+      - name: deploy
+        env:
+          HOOK: ${{ secrets[matrix.hook_secret] }}
+          SITE: ${{ matrix.site }}
+          MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "::notice::Chưa đặt secret ${{ matrix.hook_secret }}: ảnh $IMAGE đã lên GHCR nhưng CHƯA deploy"
+            exit 0
+          fi
+          jq -n --arg id "$GITHUB_SHA" --arg m "${MESSAGE%%$'\n'*}" '{ref: "refs/heads/main", commits: [], head_commit: {id: $id, message: $m}}' \
+            | curl -fsS -X POST "$HOOK" -H 'content-type: application/json' -H 'x-github-event: push' --data @-
+          echo
+          for _ in $(seq 1 60); do
+            v=$(curl -fsS "$SITE/api/version" 2>/dev/null || true)
+            case "$v" in *"$GITHUB_SHA"*) echo "đang chạy: $v"; exit 0;; esac
+            sleep 10
+          done
+          echo "::error::$SITE không báo commit $GITHUB_SHA sau 10 phút — xem tab Deployments trong Dokploy"
+          exit 1

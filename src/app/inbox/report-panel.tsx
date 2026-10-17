@@ -46,7 +46,7 @@ interface AnalyticsOverview {
   conversion_count: number;
   conversion_rate: string;
   conversion_events: Array<{ key: string; count: number; rate: number }>;
-  top_sources: Array<{ source: string; visitors: number; conversions: number; share: number }>;
+  top_sources: Array<{ source: string; label?: string; visitors: number; conversions: number; share: number }>;
   top_pages: Array<{ path: string; views: number; conversions: number }>;
   // Backend mig 171 trở đi; bản backend cũ không trả các trường này ⇒ optional.
   range_sessions?: number;
@@ -55,7 +55,7 @@ interface AnalyticsOverview {
   top_devices?: DimensionStat[];
   top_browsers?: DimensionStat[];
   top_os?: DimensionStat[];
-  ai_sources?: Array<{ source: string; visitors: number }>;
+  ai_sources?: Array<{ source: string; label?: string; visitors: number }>;
   ai_visitors?: number;
   live_feed: Array<{
     id: string;
@@ -67,62 +67,15 @@ interface AnalyticsOverview {
   }>;
 }
 
+// `label` do backend dịch (analytics_labels.py) — Coldbrew không giữ bản nhãn riêng.
 interface DimensionStat {
   value: string;
+  label?: string;
   visitors: number;
   share: number;
 }
 
-const DEVICE_LABELS: Record<string, string> = {
-  mobile: "Điện thoại",
-  tablet: "Máy tính bảng",
-  desktop: "Máy tính",
-};
-
-// Tên chuẩn hoá do phin.js gắn (source, medium = "ai_referral").
-const AI_LABELS: Record<string, string> = {
-  chatgpt: "ChatGPT",
-  perplexity: "Perplexity",
-  gemini: "Gemini",
-  claude: "Claude",
-  copilot: "Copilot",
-  deepseek: "DeepSeek",
-  grok: "Grok",
-  meta_ai: "Meta AI",
-  you: "You.com",
-  phind: "Phind",
-};
-
-const regionNames = typeof Intl !== "undefined" && "DisplayNames" in Intl
-  ? new Intl.DisplayNames(["vi"], { type: "region" })
-  : null;
-
-function countryLabel(code: string) {
-  if (code === "unknown") return "Chưa rõ";
-  const flag = String.fromCodePoint(...[...code].map((c) => 0x1f1a5 + c.charCodeAt(0)));
-  let name = code;
-  try {
-    name = regionNames?.of(code) ?? code;
-  } catch {}
-  return `${flag} ${name}`;
-}
-
-function dimensionLabel(value: string, kind: "country" | "device" | "plain") {
-  if (kind === "country") return countryLabel(value);
-  if (value === "unknown") return "Chưa rõ";
-  if (kind === "device") return DEVICE_LABELS[value] ?? value;
-  return value === "Other" ? "Khác" : value;
-}
-
-function BreakdownCard({
-  title,
-  rows,
-  kind,
-}: {
-  title: string;
-  rows: DimensionStat[];
-  kind: "country" | "device" | "plain";
-}) {
+function BreakdownCard({ title, rows }: { title: string; rows: DimensionStat[] }) {
   return (
     <div className="rounded-2xl border bg-white p-5 shadow-xs" style={{ borderColor: "var(--wa-border)" }}>
       <div className="flex items-center justify-between pb-3">
@@ -136,7 +89,7 @@ function BreakdownCard({
           {rows.map((row) => (
             <li key={row.value} className="space-y-1">
               <div className="flex items-center justify-between gap-3 text-[13px]">
-                <span className="truncate font-semibold text-slate-900">{dimensionLabel(row.value, kind)}</span>
+                <span className="truncate font-semibold text-slate-900">{row.label ?? row.value}</span>
                 <span className="whitespace-nowrap text-slate-500">
                   {row.visitors.toLocaleString("vi-VN")} · {row.share}%
                 </span>
@@ -611,7 +564,7 @@ export function ReportPanel() {
                     sourcesList.map((s) => (
                       <div key={s.source} className="flex items-center justify-between py-2.5">
                         <div>
-                          <p className="font-semibold text-slate-900">{s.source}</p>
+                          <p className="font-semibold text-slate-900">{(s as { label?: string }).label || s.source}</p>
                           <p className="text-[11.5px] text-slate-400">{s.share || 0}% tổng traffic</p>
                         </div>
                         <div className="text-right">
@@ -672,7 +625,7 @@ export function ReportPanel() {
                   <div className="flex flex-wrap gap-2">
                     {aiSources.map((ai) => (
                       <span key={ai.source} className="rounded-full border px-3 py-1 text-[13px] text-slate-700" style={{ borderColor: "var(--wa-border)" }}>
-                        <span className="font-semibold text-slate-900">{AI_LABELS[ai.source] ?? ai.source}</span> · {ai.visitors.toLocaleString("vi-VN")}
+                        <span className="font-semibold text-slate-900">{ai.label ?? ai.source}</span> · {ai.visitors.toLocaleString("vi-VN")}
                       </span>
                     ))}
                   </div>
@@ -683,10 +636,10 @@ export function ReportPanel() {
             {/* Khách là ai: quốc gia, thiết bị, trình duyệt, hệ điều hành (giải ở collector, mig 171) */}
             {hasClientDimensions && (
               <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-                <BreakdownCard title="Quốc gia" rows={realData?.top_countries ?? []} kind="country" />
-                <BreakdownCard title="Thiết bị" rows={realData?.top_devices ?? []} kind="device" />
-                <BreakdownCard title="Trình duyệt" rows={realData?.top_browsers ?? []} kind="plain" />
-                <BreakdownCard title="Hệ điều hành" rows={realData?.top_os ?? []} kind="plain" />
+                <BreakdownCard title="Quốc gia" rows={realData?.top_countries ?? []} />
+                <BreakdownCard title="Thiết bị" rows={realData?.top_devices ?? []} />
+                <BreakdownCard title="Trình duyệt" rows={realData?.top_browsers ?? []} />
+                <BreakdownCard title="Hệ điều hành" rows={realData?.top_os ?? []} />
               </div>
             )}
 

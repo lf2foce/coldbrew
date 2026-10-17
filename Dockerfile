@@ -104,6 +104,10 @@ RUN cp -r .next/static .next/standalone/.next/static \
 FROM node:24-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
+# Commit của bản build, đọc qua /api/version. Workflow deploy chờ tới khi đường đó báo
+# đúng commit vừa push — "Dokploy báo done" không chứng minh container đang chạy bản mới.
+ARG GIT_SHA=unknown
+ENV GIT_SHA=$GIT_SHA
 RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
 
 # `output: "standalone"` gom sẵn node_modules cần thiết, nhưng KHÔNG gom `public/`
