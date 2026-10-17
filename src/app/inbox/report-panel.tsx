@@ -48,6 +48,15 @@ interface AnalyticsOverview {
   conversion_events: Array<{ key: string; count: number; rate: number }>;
   top_sources: Array<{ source: string; visitors: number; conversions: number; share: number }>;
   top_pages: Array<{ path: string; views: number; conversions: number }>;
+  // Backend mig 171 trở đi; bản backend cũ không trả các trường này ⇒ optional.
+  range_sessions?: number;
+  bounce_rate?: string;
+  top_countries?: DimensionStat[];
+  top_devices?: DimensionStat[];
+  top_browsers?: DimensionStat[];
+  top_os?: DimensionStat[];
+  ai_sources?: Array<{ source: string; visitors: number }>;
+  ai_visitors?: number;
   live_feed: Array<{
     id: string;
     event_type: string;
@@ -56,6 +65,91 @@ interface AnalyticsOverview {
     campaign: string | null;
     time_ago: string;
   }>;
+}
+
+interface DimensionStat {
+  value: string;
+  visitors: number;
+  share: number;
+}
+
+const DEVICE_LABELS: Record<string, string> = {
+  mobile: "Điện thoại",
+  tablet: "Máy tính bảng",
+  desktop: "Máy tính",
+};
+
+// Tên chuẩn hoá do phin.js gắn (source, medium = "ai_referral").
+const AI_LABELS: Record<string, string> = {
+  chatgpt: "ChatGPT",
+  perplexity: "Perplexity",
+  gemini: "Gemini",
+  claude: "Claude",
+  copilot: "Copilot",
+  deepseek: "DeepSeek",
+  grok: "Grok",
+  meta_ai: "Meta AI",
+  you: "You.com",
+  phind: "Phind",
+};
+
+const regionNames = typeof Intl !== "undefined" && "DisplayNames" in Intl
+  ? new Intl.DisplayNames(["vi"], { type: "region" })
+  : null;
+
+function countryLabel(code: string) {
+  if (code === "unknown") return "Chưa rõ";
+  const flag = String.fromCodePoint(...[...code].map((c) => 0x1f1a5 + c.charCodeAt(0)));
+  let name = code;
+  try {
+    name = regionNames?.of(code) ?? code;
+  } catch {}
+  return `${flag} ${name}`;
+}
+
+function dimensionLabel(value: string, kind: "country" | "device" | "plain") {
+  if (kind === "country") return countryLabel(value);
+  if (value === "unknown") return "Chưa rõ";
+  if (kind === "device") return DEVICE_LABELS[value] ?? value;
+  return value === "Other" ? "Khác" : value;
+}
+
+function BreakdownCard({
+  title,
+  rows,
+  kind,
+}: {
+  title: string;
+  rows: DimensionStat[];
+  kind: "country" | "device" | "plain";
+}) {
+  return (
+    <div className="rounded-2xl border bg-white p-5 shadow-xs" style={{ borderColor: "var(--wa-border)" }}>
+      <div className="flex items-center justify-between pb-3">
+        <h3 className="text-[14px] font-bold text-slate-900">{title}</h3>
+        <span className="text-[12px] text-slate-400">Khách</span>
+      </div>
+      {rows.length === 0 ? (
+        <p className="py-3 text-center text-[12px] text-slate-400">Chưa có dữ liệu.</p>
+      ) : (
+        <ul className="space-y-2.5">
+          {rows.map((row) => (
+            <li key={row.value} className="space-y-1">
+              <div className="flex items-center justify-between gap-3 text-[13px]">
+                <span className="truncate font-semibold text-slate-900">{dimensionLabel(row.value, kind)}</span>
+                <span className="whitespace-nowrap text-slate-500">
+                  {row.visitors.toLocaleString("vi-VN")} · {row.share}%
+                </span>
+              </div>
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+                <div className="h-full rounded-full bg-slate-400" style={{ width: `${Math.min(100, row.share)}%` }} />
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
 }
 
 interface AnalyticsSite {
@@ -221,6 +315,10 @@ export function ReportPanel() {
   const pageviewsCount = hasRealData ? (realData?.range_pageviews ?? 0) : isUsingDemo ? mockTotals.pageviews : 0;
   const convCount = hasRealData ? (realData?.conversion_count ?? 0) : isUsingDemo ? mockTotals.conv : 0;
   const cvrRate = hasRealData ? (realData?.conversion_rate ?? "0.0%") : isUsingDemo ? mockTotals.cvr : "0.0%";
+  const bounceRate = hasRealData ? realData?.bounce_rate : undefined;
+  // Chỉ hiện khi backend đã trả chiều mới (mig 171); demo không bịa số cho phần này.
+  const hasClientDimensions = hasRealData && realData?.top_countries !== undefined;
+  const aiSources = hasRealData ? (realData?.ai_sources ?? []) : [];
 
   const eventBreakdown: EventMetric[] = hasRealData && realData?.conversion_events.length
     ? realData.conversion_events.map((ev) => ({
@@ -440,7 +538,9 @@ export function ReportPanel() {
               <div className="rounded-2xl border bg-white p-4 shadow-xs" style={{ borderColor: "var(--wa-border)" }}>
                 <span className="text-[12px] font-medium text-slate-500">Lượt xem trang (Pageviews)</span>
                 <p className="mt-1 text-[22px] font-black text-slate-900">{pageviewsCount.toLocaleString("vi-VN")}</p>
-                <span className="text-[11px] text-slate-400">Gồm cả SPA navigation</span>
+                <span className="text-[11px] text-slate-400">
+                  {bounceRate ? `Tỷ lệ thoát ${bounceRate} (phiên 1 trang)` : "Gồm cả SPA navigation"}
+                </span>
               </div>
 
               <div className="rounded-2xl border bg-white p-4 shadow-xs" style={{ borderColor: "var(--wa-border)" }}>
@@ -551,6 +651,44 @@ export function ReportPanel() {
                 </div>
               </div>
             </div>
+
+            {/* Khách đến từ trợ lý AI — phin.js nhận theo referrer hoặc utm_source (ChatGPT tự gắn). */}
+            {hasClientDimensions && (
+              <div className="rounded-2xl border bg-white p-5 shadow-xs" style={{ borderColor: "var(--wa-border)" }}>
+                <div className="flex items-center justify-between pb-3">
+                  <div>
+                    <h3 className="text-[14px] font-bold text-slate-900">Khách đến từ trợ lý AI</h3>
+                    <p className="text-[12px] text-slate-500">
+                      ChatGPT, Perplexity, Gemini… Chỉ đếm được lượt có referrer hoặc UTM; app AI giấu nguồn sẽ rơi vào Trực tiếp.
+                    </p>
+                  </div>
+                  <span className="whitespace-nowrap rounded-md border border-violet-100 bg-violet-50 px-2 py-0.5 text-[12px] font-semibold text-violet-700">
+                    {(realData?.ai_visitors ?? 0).toLocaleString("vi-VN")} khách
+                  </span>
+                </div>
+                {aiSources.length === 0 ? (
+                  <p className="py-2 text-[12px] text-slate-400">Chưa có khách nào từ trợ lý AI trong khoảng thời gian này.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {aiSources.map((ai) => (
+                      <span key={ai.source} className="rounded-full border px-3 py-1 text-[13px] text-slate-700" style={{ borderColor: "var(--wa-border)" }}>
+                        <span className="font-semibold text-slate-900">{AI_LABELS[ai.source] ?? ai.source}</span> · {ai.visitors.toLocaleString("vi-VN")}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Khách là ai: quốc gia, thiết bị, trình duyệt, hệ điều hành (giải ở collector, mig 171) */}
+            {hasClientDimensions && (
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+                <BreakdownCard title="Quốc gia" rows={realData?.top_countries ?? []} kind="country" />
+                <BreakdownCard title="Thiết bị" rows={realData?.top_devices ?? []} kind="device" />
+                <BreakdownCard title="Trình duyệt" rows={realData?.top_browsers ?? []} kind="plain" />
+                <BreakdownCard title="Hệ điều hành" rows={realData?.top_os ?? []} kind="plain" />
+              </div>
+            )}
 
             {/* Dòng sự kiện thời gian thực (Live Activity Stream kiểu Splitbee) */}
             <div className="rounded-2xl border bg-white p-5 shadow-xs" style={{ borderColor: "var(--wa-border)" }}>
